@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1f4d3a">
+<meta name="theme-color" content="#eef7f1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Klashouding">
@@ -17,18 +17,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  color-scheme: light dark;
-  --bord:#1f4d3a; --bord2:#2a6149; --krijt:#f5d547;
-  --paper:light-dark(#fffdf7,#161a18);
+  color-scheme: light;
+  --bord:light-dark(#2f7a52,#2f8a5c); --krijt:#e9b500;
+  --head:light-dark(#eef7f1,#1b2420); --headink:light-dark(#1f4d3a,#d9efe3);
+  --paper:light-dark(#fbfcfa,#161a18);
   --card:light-dark(#ffffff,#1f2522);
-  --ink:light-dark(#1d2421,#e8ece9);
-  --muted:light-dark(#5f6b66,#9aa7a1);
-  --line:light-dark(#dfe3dd,#323b37);
-  --soft:light-dark(#f2f4ef,#252c29);
-  --s4:#2e7d32; --s4t:#fff;
-  --s3:#9ccc65; --s3t:#17310b;
-  --s2:#f3a73b; --s2t:#3a2300;
-  --s1:#d64541; --s1t:#fff;
+  --ink:light-dark(#22302a,#e8ece9);
+  --muted:light-dark(#66736d,#9aa7a1);
+  --line:light-dark(#e1e7e2,#323b37);
+  --soft:light-dark(#f4f7f4,#252c29);
+  --s4:#1e6b34; --s4t:#fff;
+  --s3:#8fd16a; --s3t:#173a0a;
+  --s2:#f08a24; --s2t:#3a1d00;
+  --s1:#dc3b3b; --s1t:#fff;
   --err:light-dark(#b3261e,#ff8a80);
   --ok:light-dark(#2e7d32,#81c784);
   --font:"Lexend",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -36,16 +37,20 @@
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--paper);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
-header{background:var(--bord);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 12px 0;position:sticky;top:0;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+:root[data-theme="dark"]{color-scheme:dark}
+:root[data-theme="auto"]{color-scheme:light dark}
+header{background:var(--head);color:var(--headink);padding:calc(env(safe-area-inset-top) + 8px) 12px 0;position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line)}
+.update{background:#fff4cc;color:#3a2e00;border-radius:10px;padding:8px 12px;margin:8px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
+.update button{min-height:36px;padding:4px 10px}
 .top{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
 .top h1{font-size:1.15rem;margin:0;font-weight:600}
-.top h1 span{color:var(--krijt)}
-#status{font-size:.75rem;opacity:.85;text-align:right}
-#status.bad{color:#ffb4ab;opacity:1}
+.top h1 span{color:var(--bord)}
+#status{font-size:.75rem;opacity:.8;text-align:right}
+#status.bad{color:var(--err);opacity:1}
 nav{display:flex;gap:4px;overflow-x:auto;margin-top:6px;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
-nav button{background:transparent;color:#dbe8e1;border:0;border-bottom:3px solid transparent;padding:10px 12px;min-height:44px;font:inherit;font-size:.95rem;white-space:nowrap;cursor:pointer}
-nav button[aria-selected="true"]{color:#fff;border-bottom-color:var(--krijt);font-weight:600}
+nav button{background:transparent;color:var(--muted);border:0;border-radius:0;border-bottom:3px solid transparent;padding:10px 12px;min-height:44px;font:inherit;font-size:.95rem;white-space:nowrap;cursor:pointer}
+nav button[aria-selected="true"]{color:var(--headink);border-bottom-color:var(--bord);font-weight:600}
 main{max-width:1100px;margin:0 auto;padding:14px 12px 60px}
 h2{font-size:1.2rem;margin:.2em 0 .6em}
 h3{font-size:1.05rem;margin:1.2em 0 .5em}
@@ -156,13 +161,16 @@ tr.absent .opt{pointer-events:none}
     <button role="tab" data-tab="overzicht" aria-selected="false">Overzicht per kind</button>
     <button role="tab" data-tab="export" aria-selected="false">Exporteren</button>
     <button role="tab" data-tab="klas" aria-selected="false">Klas &amp; criteria</button>
+    <button role="tab" data-tab="instellingen" aria-selected="false">Instellingen</button>
   </nav>
+  <div id="updBanner" class="update hidden"></div>
 </header>
 <main>
   <section id="beoordelen"></section>
   <section id="overzicht" class="hidden"></section>
   <section id="export" class="hidden"></section>
   <section id="klas" class="hidden"></section>
+  <section id="instellingen" class="hidden"></section>
 </main>
 <script>
 'use strict';
@@ -262,7 +270,7 @@ function showTab(t){
 }
 function render(){
   $('#klasnaam').textContent=S.cfg.klas||'';
-  ({beoordelen:renderBeoordelen,overzicht:renderOverzicht,export:renderExport,klas:renderKlas})[UI.tab]();
+  ({beoordelen:renderBeoordelen,overzicht:renderOverzicht,export:renderExport,klas:renderKlas,instellingen:renderInst})[UI.tab]();
 }
 
 /* Bevestigen met twee tikken */
@@ -764,12 +772,62 @@ $('#klas').addEventListener('click',e=>{
   }
 });
 
+/* ================= Instellingen & versies ================= */
+const APP_VERSIE='1.2';
+const VERSIES=[
+  {v:'1.2',d:'2026-11-25',w:['Nieuwe tab Instellingen: versies volgen en zoeken naar een update.','Lichter thema (standaard licht, ook als je toestel op donker staat).','Scorekleuren: ++ donkergroen, + lichtgroen, − oranje, −− rood.','Updates komen meteen binnen (geen oude versie uit de cache meer).']},
+  {v:'1.1',d:'2026-11-25',w:['Scores ingeven met vier knoppen: ++, +, −, −−.']},
+  {v:'1.0',d:'2026-11-25',w:['Eerste versie: beoordelen, overzicht per kind, groeifeedback, export en back-up. Maximum 10 criteria per lesmoment.']}
+];
+const THEMA_KEY='klashouding_thema';
+function getThema(){try{return localStorage.getItem(THEMA_KEY)||'light';}catch(e){return 'light';}}
+function applyThema(t){document.documentElement.dataset.theme=t;}
+applyThema(getThema());
+let UPD={state:'',remote:null};
+async function checkUpdate(silent){
+  UPD.state='checking';if(!silent&&UI.tab==='instellingen') renderInst();
+  try{
+    const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error(r.status);
+    const d=await r.json();UPD.remote=d;
+    UPD.state=String(d.versie)!==APP_VERSIE?'new':'latest';
+  }catch(e){UPD.state=silent?'':'offline';}
+  if(UI.tab==='instellingen') renderInst();
+  const bn=$('#updBanner');
+  if(UPD.state==='new'){bn.innerHTML=`Er is een nieuwe versie (${esc(UPD.remote.versie)}). <button data-upd>Nu bijwerken</button>`;bn.classList.remove('hidden');}
+  else bn.classList.add('hidden');
+}
+async function doUpdate(){
+  try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));}catch(e){}
+  try{const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.update().catch(()=>{})));}catch(e){}
+  location.replace(location.pathname+'?v='+Date.now());
+}
+document.addEventListener('click',e=>{if(e.target.closest('[data-upd]')) doUpdate();});
+function renderInst(){
+  const el=$('#instellingen');const th=getThema();
+  let st='';
+  if(UPD.state==='checking') st='<p class="msg">Bezig met zoeken…</p>';
+  if(UPD.state==='latest') st='<p class="msg ok">Je hebt de nieuwste versie.</p>';
+  if(UPD.state==='offline') st='<p class="msg err">Zoeken lukte niet. Ben je met het internet verbonden?</p>';
+  if(UPD.state==='new') st=`<p class="msg ok">Er is een nieuwe versie: <b>${esc(UPD.remote.versie)}</b>.</p><div class="row"><button class="primary" data-upd>Nu bijwerken</button></div>`;
+  el.innerHTML=`<div class="card"><h2>Versie</h2>
+    <p>Je gebruikt versie <b>${APP_VERSIE}</b>.</p>
+    <div class="row"><button data-act="check">Zoek naar een nieuwe versie</button></div>${st}</div>
+  <div class="card"><h2>Thema</h2><div class="row" role="radiogroup" aria-label="Thema">
+    ${[['light','Licht'],['dark','Donker'],['auto','Zoals mijn toestel']].map(([v,l])=>`<label class="check"><input type="radio" name="thema" value="${v}"${th===v?' checked':''}> ${l}</label>`).join('')}
+  </div></div>
+  <div class="card"><h2>Wat is er nieuw?</h2>${VERSIES.map(x=>`<h3>Versie ${esc(x.v)} <span class="muted small">· ${esc(fmtDate(x.d))}</span></h3><ul>${x.w.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`).join('')}</div>`;
+}
+$('#instellingen').addEventListener('click',e=>{if(e.target.closest('[data-act="check"]')) checkUpdate(false);});
+$('#instellingen').addEventListener('change',e=>{if(e.target.name==='thema'){try{localStorage.setItem(THEMA_KEY,e.target.value);}catch(err){}applyThema(e.target.value);}});
+
 /* ================= Start ================= */
 load();render();
+setTimeout(()=>checkUpdate(true),1500);
 try{if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});}catch(e){}
 try{
   if('serviceWorker' in navigator&&location.protocol==='https:'&&window.self===window.top){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(()=>{});
   }
 }catch(e){}
 </script>

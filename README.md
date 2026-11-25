@@ -32,5 +32,5 @@ Je gegevens staan **enkel op dit toestel**, in de browser. Neem daarom geregeld 
 ## 4. Een nieuwe versie uitbrengen
 
 1. Pas de bestanden aan.
-2. Verhoog in `sw.js` de `VERSIE` (bv. van `'klashouding-v1'` naar `'klashouding-v2'`).
+2. Verhoog de versie op drie plaatsen: `VERSIE` in `sw.js`, `APP_VERSIE` (en de lijst `VERSIES`) in `index.html`, en `versie` in `version.json`. In de app vind je onder **Instellingen** de knop om naar een nieuwe versie te zoeken.
 3. Commit en push naar `main`. GitHub Pages zet de nieuwe versie automatisch online; open de app een keer met internet en de update is binnen.
