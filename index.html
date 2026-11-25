@@ -891,8 +891,9 @@ $('#klas').addEventListener('click',e=>{
 });
 
 /* ================= Instellingen & versies ================= */
-const APP_VERSIE='1.3';
+const APP_VERSIE='1.4';
 const VERSIES=[
+  {v:'1.4',d:'2026-11-25',w:['Knop in Instellingen om alle gegevens te verwijderen (met bevestiging).']},
   {v:'1.3',d:'2026-11-25',w:['Meerdere klassen: kies bovenaan je klas of maak een nieuwe. Elke klas heeft eigen leerlingen, criteria en lesmomenten.','Nieuwe weergave "Per criterium": één criterium tegelijk met grote knoppen per leerling, past op je iPhone zonder opzij te scrollen.','Per criterium zie je hoeveel leerlingen al ingevuld zijn en ga je met één tik naar het volgende.','Tik op een naam voor afwezig of een notitie. Het rooster blijft beschikbaar.','De back-up bevat nu al je klassen.']},
   {v:'1.2',d:'2026-11-25',w:['Nieuwe tab Instellingen: versies volgen en zoeken naar een update.','Lichter thema (standaard licht, ook als je toestel op donker staat).','Scorekleuren: ++ donkergroen, + lichtgroen, − oranje, −− rood.','Updates komen meteen binnen (geen oude versie uit de cache meer).']},
   {v:'1.1',d:'2026-11-25',w:['Scores ingeven met vier knoppen: ++, +, −, −−.']},
@@ -935,9 +936,22 @@ function renderInst(){
   <div class="card"><h2>Thema</h2><div class="row" role="radiogroup" aria-label="Thema">
     ${[['light','Licht'],['dark','Donker'],['auto','Zoals mijn toestel']].map(([v,l])=>`<label class="check"><input type="radio" name="thema" value="${v}"${th===v?' checked':''}> ${l}</label>`).join('')}
   </div></div>
-  <div class="card"><h2>Wat is er nieuw?</h2>${VERSIES.map(x=>`<h3>Versie ${esc(x.v)} <span class="muted small">· ${esc(fmtDate(x.d))}</span></h3><ul>${x.w.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`).join('')}</div>`;
+  <div class="card"><h2>Wat is er nieuw?</h2>${VERSIES.map(x=>`<h3>Versie ${esc(x.v)} <span class="muted small">· ${esc(fmtDate(x.d))}</span></h3><ul>${x.w.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`).join('')}</div>
+  <div class="card"><h2>Alle gegevens verwijderen</h2>
+    <p>Dit wist <b>alle klassen, leerlingen, criteria, lesmomenten en scores</b> op dit toestel. Dat kan je niet ongedaan maken. Neem eerst een back-up als je de gegevens later nog wil terugzetten.</p>
+    <div class="row"><button data-act="wipeBackup">Kopieer eerst een back-up</button><button class="danger" data-act="wipe">Alle gegevens verwijderen</button></div>
+    <div class="copyslot" id="wSlot"></div><div class="msg" id="wMsg"></div></div>`;
 }
-$('#instellingen').addEventListener('click',e=>{if(e.target.closest('[data-act="check"]')) checkUpdate(false);});
+$('#instellingen').addEventListener('click',e=>{
+  if(e.target.closest('[data-act="check"]')) checkUpdate(false);
+  if(e.target.closest('[data-act="wipeBackup"]')) copyText(JSON.stringify(DB),$('#wSlot'));
+  const w=e.target.closest('[data-act="wipe"]');
+  if(w) armed(w,()=>{
+    try{localStorage.removeItem(KEY);}catch(err){}
+    initDB(newKlas(defaultCfg()));UI.cur=null;UI.form=null;UI.kid=null;UI.crit=null;save();render();
+    const m=$('#wMsg');m.className='msg ok';m.textContent='Alle gegevens zijn verwijderd. Je kan opnieuw beginnen bij Beoordelen.';
+  });
+});
 $('#instellingen').addEventListener('change',e=>{if(e.target.name==='thema'){try{localStorage.setItem(THEMA_KEY,e.target.value);}catch(err){}applyThema(e.target.value);}});
 
 /* ================= Start ================= */
