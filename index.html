@@ -86,11 +86,16 @@ th{font-size:.8rem;font-weight:600;color:var(--muted);background:var(--card)}
 .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .absbtn{min-height:36px;padding:4px 8px;font-size:.75rem;border-radius:8px}
 .absbtn[aria-pressed="true"]{background:var(--muted);color:var(--card)}
-.cell{width:52px;height:46px;min-height:44px;padding:0;font-size:1.1rem;font-weight:700;border-radius:10px;background:var(--soft);border:1px dashed var(--line)}
-.cell.s4,.cell.s3,.cell.s2,.cell.s1{border-style:solid;border-color:transparent}
+.opts{display:flex;gap:3px;justify-content:center;padding:2px;border-radius:12px}
+.opt{min-width:38px;width:38px;height:44px;min-height:44px;padding:0;font-size:1rem;font-weight:700;border-radius:9px;background:var(--soft);border:2px solid var(--line);color:var(--muted)}
+.opt.o4{border-color:var(--s4)} .opt.o3{border-color:var(--s3)} .opt.o2{border-color:var(--s2)} .opt.o1{border-color:var(--s1)}
+.opts.done .opt:not([aria-pressed="true"]){opacity:.35}
+.opt.s4{background:var(--s4);color:var(--s4t)} .opt.s3{background:var(--s3);color:var(--s3t)}
+.opt.s2{background:var(--s2);color:var(--s2t)} .opt.s1{background:var(--s1);color:var(--s1t)}
+.opt[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink) inset}
 tr.absent td{opacity:.45}
 tr.absent td.name{opacity:1;color:var(--muted)}
-tr.absent .cell{pointer-events:none}
+tr.absent .opt{pointer-events:none}
 .fill{font-size:.72rem;padding:4px 6px;min-height:36px;margin-top:4px;white-space:nowrap}
 .note{min-width:170px;width:100%;font-size:16px}
 .progress{margin:10px 0;font-weight:500}
@@ -164,9 +169,8 @@ tr.absent .cell{pointer-events:none}
 /* ================= Basis ================= */
 const KEY = 'klashouding_v1';
 const MAX_CRITS = 10; // maximum 10 vragen (criteria) per kind per lesmoment
-const SYM = {4:'++',3:'+',2:'±',1:'−'};
+const SYM = {4:'++',3:'+',2:'−',1:'−−'};
 const WORD = {4:'zeer goed',3:'goed',2:'wisselend',1:'werkpunt'};
-const CYCLE = {0:3,3:4,4:2,2:1,1:0}; // leeg → + → ++ → ± → − → leeg
 const DEF_CRITS = [
   {id:'luisteren',name:'Luisteren',short:'Luist.'},
   {id:'meewerken',name:'Meewerken',short:'Meew.'},
@@ -325,7 +329,7 @@ function renderForm(){
   ${f.id||Object.keys(S.M).length?'<button data-act="cancelForm">Annuleer</button>':''}</div></div>`;
 }
 function legend(){
-  return `<div class="legend"><span class="muted">Tik: leeg →</span><span class="sc s3">+</span>→<span class="sc s4">++</span>→<span class="sc s2">±</span>→<span class="sc s1">−</span>→ leeg</div>`;
+  return `<div class="legend"><span class="muted">Tik de juiste score aan:</span>${[4,3,2,1].map(v=>`<span class="sc s${v}">${SYM[v]}</span> ${WORD[v]}`).join(' ')}<span class="muted">· nog eens tikken = leegmaken</span></div>`;
 }
 function renderGrid(m){
   const crits=m.crits.map(critById).filter(Boolean);
@@ -335,7 +339,7 @@ function renderGrid(m){
   for(const k of S.cfg.kids){
     const ab=!!(m.absent&&m.absent[k.id]);const sc=(m.scores&&m.scores[k.id])||{};
     h+=`<tr data-kid="${esc(k.id)}" class="${ab?'absent':''}"><td class="name"><div class="nm"><span>${esc(k.name)}</span><button class="absbtn" data-act="abs" aria-pressed="${ab}" title="Afwezig">afw.</button></div></td>`;
-    h+=crits.map(c=>{const v=sc[c.id]||0;return `<td><button class="cell ${v?'s'+v:''}" data-act="cell" data-c="${esc(c.id)}" aria-label="${esc(k.name)} – ${esc(c.name)}: ${v?WORD[v]:'leeg'}">${v?SYM[v]:''}</button></td>`;}).join('');
+    h+=crits.map(c=>{const v=sc[c.id]||0;return `<td>${optsHtml(k.name,c,v)}</td>`;}).join('');
     h+=`<td><input class="note" data-act="note" value="${esc((m.notes&&m.notes[k.id])||'')}" placeholder="notitie…" aria-label="Notitie ${esc(k.name)}"></td></tr>`;
   }
   h+=`</tbody></table></div><div class="progress" id="progress">${progressText(m)}</div>`;
@@ -350,9 +354,12 @@ function progressText(m){
   }
   return `${full} van ${S.cfg.kids.length-abs} leerlingen volledig beoordeeld${abs?` · ${abs} afwezig`:''}`;
 }
-function setCell(btn,v,name,cname){
-  btn.className='cell '+(v?'s'+v:'');btn.textContent=v?SYM[v]:'';
-  btn.setAttribute('aria-label',`${name} – ${cname}: ${v?WORD[v]:'leeg'}`);
+function setCell(group,v){
+  group.classList.toggle('done',!!v);
+  $$('.opt',group).forEach(o=>{const on=Number(o.dataset.v)===v;o.setAttribute('aria-pressed',on);o.classList.toggle('s'+o.dataset.v,on);});
+}
+function optsHtml(kname,c,v){
+  return `<div class="opts${v?' done':''}" role="group" data-c="${esc(c.id)}" aria-label="${esc(kname)} – ${esc(c.name)}">${[4,3,2,1].map(o=>`<button class="opt o${o}${v===o?' s'+o:''}" data-act="cell" data-c="${esc(c.id)}" data-v="${o}" aria-pressed="${v===o}" title="${WORD[o]}">${SYM[o]}</button>`).join('')}</div>`;
 }
 $('#beoordelen').addEventListener('change',e=>{
   if(e.target.id==='momSel'){
@@ -419,9 +426,10 @@ $('#beoordelen').addEventListener('click',e=>{
   if(act==='cell'){
     const tr=b.closest('tr');const kid=tr.dataset.kid;const c=b.dataset.c;m.scores=m.scores||{};
     m.scores[kid]=m.scores[kid]||{};
-    const nv=CYCLE[m.scores[kid][c]||0];
+    const pick=Number(b.dataset.v);
+    const nv=m.scores[kid][c]===pick?0:pick; // nogmaals tikken = leegmaken
     if(nv) m.scores[kid][c]=nv; else delete m.scores[kid][c];
-    setCell(b,nv,S.cfg.kids.find(k=>k.id===kid).name,critById(c).name);
+    setCell(b.closest('.opts'),nv);
     $('#progress').textContent=progressText(m);save();return;
   }
   if(act==='fill'){
@@ -429,7 +437,7 @@ $('#beoordelen').addEventListener('click',e=>{
     $$('#beoordelen tbody tr').forEach(tr=>{
       const kid=tr.dataset.kid;if(m.absent&&m.absent[kid]) return;m.scores=m.scores||{};
       m.scores[kid]=m.scores[kid]||{};
-      if(!m.scores[kid][c]){m.scores[kid][c]=3;setCell($(`.cell[data-c="${CSS.escape(c)}"]`,tr),3,S.cfg.kids.find(k=>k.id===kid).name,critById(c).name);}
+      if(!m.scores[kid][c]){m.scores[kid][c]=3;setCell($(`.opts[data-c="${CSS.escape(c)}"]`,tr),3);}
     });
     $('#progress').textContent=progressText(m);save();return;
   }
@@ -534,7 +542,7 @@ function groei(kid,stats){
   }
   const cards=goals.map(s=>{
     const tp=tipsFor(s.c);const parts=[];
-    parts.push(s.low?`${s.low} van de ${s.n} keer ± of −`:`${s.n} keer beoordeeld, gemiddeld ${WORD[s.lvl]}`);
+    parts.push(s.low?`${s.low} van de ${s.n} keer − of −−`:`${s.n} keer beoordeeld, gemiddeld ${WORD[s.lvl]}`);
     const wv=weakVak(s);if(wv) parts[0]+=`, vooral tijdens ${wv}`;
     let tr='';if(s.trend<0) tr='de laatste lessen ging het minder vlot';else if(s.trend>0) tr='de laatste lessen gaat het al beter';
     const zien=parts[0]+(tr?'; '+tr:'');
@@ -665,7 +673,7 @@ function renderExport(){
   if(!S.cfg.kids.length){el.innerHTML='<p>Voeg eerst leerlingen toe.</p>';return;}
   const rows=exportRows();const head=exportHeader();
   let h=filterBar()+`<div class="card"><div class="row" role="radiogroup" aria-label="Weergave">
-    ${[['woorden','Woorden (zeer goed / goed / …)'],['symbolen','Symbolen (++ + ± −)'],['gemiddelde','Gemiddelde op 4']].map(([v,l])=>`<label class="check"><input type="radio" name="exMode" value="${v}"${UI.exMode===v?' checked':''}> ${l}</label>`).join('')}
+    ${[['woorden','Woorden (zeer goed / goed / …)'],['symbolen','Symbolen (++ + − −−)'],['gemiddelde','Gemiddelde op 4']].map(([v,l])=>`<label class="check"><input type="radio" name="exMode" value="${v}"${UI.exMode===v?' checked':''}> ${l}</label>`).join('')}
   </div><div class="row">
     <label class="check"><input type="checkbox" id="exTekst"${UI.exTekst?' checked':''}> Rapporttekst meenemen</label>
     <label class="check"><input type="checkbox" id="exGroei"${UI.exGroei?' checked':''}> Groeifeedback meenemen</label>
