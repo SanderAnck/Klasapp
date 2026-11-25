@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="nl-BE">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4d3a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Klashouding">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Klashouding volgen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light dark;
+  --bord:#1f4d3a; --bord2:#2a6149; --krijt:#f5d547;
+  --paper:light-dark(#fffdf7,#161a18);
+  --card:light-dark(#ffffff,#1f2522);
+  --ink:light-dark(#1d2421,#e8ece9);
+  --muted:light-dark(#5f6b66,#9aa7a1);
+  --line:light-dark(#dfe3dd,#323b37);
+  --soft:light-dark(#f2f4ef,#252c29);
+  --s4:#2e7d32; --s4t:#fff;
+  --s3:#9ccc65; --s3t:#17310b;
+  --s2:#f3a73b; --s2t:#3a2300;
+  --s1:#d64541; --s1t:#fff;
+  --err:light-dark(#b3261e,#ff8a80);
+  --ok:light-dark(#2e7d32,#81c784);
+  --font:"Lexend",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+header{background:var(--bord);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 12px 0;position:sticky;top:0;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.top{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.top h1{font-size:1.15rem;margin:0;font-weight:600}
+.top h1 span{color:var(--krijt)}
+#status{font-size:.75rem;opacity:.85;text-align:right}
+#status.bad{color:#ffb4ab;opacity:1}
+nav{display:flex;gap:4px;overflow-x:auto;margin-top:6px;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{background:transparent;color:#dbe8e1;border:0;border-bottom:3px solid transparent;padding:10px 12px;min-height:44px;font:inherit;font-size:.95rem;white-space:nowrap;cursor:pointer}
+nav button[aria-selected="true"]{color:#fff;border-bottom-color:var(--krijt);font-weight:600}
+main{max-width:1100px;margin:0 auto;padding:14px 12px 60px}
+h2{font-size:1.2rem;margin:.2em 0 .6em}
+h3{font-size:1.05rem;margin:1.2em 0 .5em}
+p{margin:.4em 0}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+:focus-visible{outline:3px solid var(--krijt);outline-offset:2px}
+button,.btn{font:inherit;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--bord);color:#fff;border-color:var(--bord)}
+button.danger{color:var(--err);border-color:currentColor}
+button.armed{background:var(--err);color:#fff;border-color:var(--err)}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-height:44px;max-width:100%}
+textarea{width:100%;min-height:110px;resize:vertical}
+label{display:inline-flex;flex-direction:column;gap:3px;font-size:.85rem;color:var(--muted)}
+label.check{flex-direction:row;align-items:center;gap:8px;font-size:.95rem;color:var(--ink);min-height:44px}
+label.check input{min-height:0;width:22px;height:22px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border-radius:999px;padding:8px 14px;background:var(--soft);border:1px solid var(--line)}
+.chip[aria-pressed="true"]{background:var(--bord);color:#fff;border-color:var(--bord)}
+.msg{margin:.5em 0;font-size:.9rem}
+.msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+.legend{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.85rem;margin:8px 0}
+.sc{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;font-weight:700}
+.s4{background:var(--s4);color:var(--s4t)} .s3{background:var(--s3);color:var(--s3t)}
+.s2{background:var(--s2);color:var(--s2t)} .s1{background:var(--s1);color:var(--s1t)}
+.legend .sc{padding:2px 8px;min-width:34px}
+/* rooster */
+.gridwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);-webkit-overflow-scrolling:touch}
+table{border-collapse:separate;border-spacing:0;width:100%}
+th,td{padding:4px;border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
+th{font-size:.8rem;font-weight:600;color:var(--muted);background:var(--card)}
+.grid th.name,.grid td.name,.ov th.name,.ov td.name{position:sticky;left:0;z-index:2;background:var(--card);text-align:left;box-shadow:1px 0 0 var(--line)}
+.grid td.name{min-width:150px;max-width:190px}
+.nm{display:flex;align-items:center;gap:6px;justify-content:space-between}
+.nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.absbtn{min-height:36px;padding:4px 8px;font-size:.75rem;border-radius:8px}
+.absbtn[aria-pressed="true"]{background:var(--muted);color:var(--card)}
+.cell{width:52px;height:46px;min-height:44px;padding:0;font-size:1.1rem;font-weight:700;border-radius:10px;background:var(--soft);border:1px dashed var(--line)}
+.cell.s4,.cell.s3,.cell.s2,.cell.s1{border-style:solid;border-color:transparent}
+tr.absent td{opacity:.45}
+tr.absent td.name{opacity:1;color:var(--muted)}
+tr.absent .cell{pointer-events:none}
+.fill{font-size:.72rem;padding:4px 6px;min-height:36px;margin-top:4px;white-space:nowrap}
+.note{min-width:170px;width:100%;font-size:16px}
+.progress{margin:10px 0;font-weight:500}
+/* overzicht */
+.ov td.name button{background:none;border:0;padding:6px 2px;min-height:44px;text-align:left;color:var(--ink);font-weight:500;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px}
+.ov tr.sel td{background:light-dark(#fbf6d9,#2d2b1d)}
+.ov tr.sel td.name{background:light-dark(#fbf6d9,#2d2b1d)}
+.avg{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:44px;min-height:40px;border-radius:8px;font-weight:700;line-height:1.1}
+.avg small{font-weight:400;font-size:.65rem;opacity:.85}
+.dist{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--soft);flex:1;min-width:120px}
+.dist div{height:100%}
+.critrow{display:grid;grid-template-columns:minmax(110px,170px) 1fr;gap:6px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.critrow .info{grid-column:2;font-size:.85rem;color:var(--muted)}
+.up{color:var(--ok);font-weight:600}.down{color:var(--err);font-weight:600}
+.goal{border-left:6px solid var(--s2);background:var(--soft);border-radius:10px;padding:10px 12px;margin:8px 0}
+.goal.l1{border-left-color:var(--s1)} .goal.l3,.goal.l4{border-left-color:var(--s3)}
+.goal h4{margin:0 0 6px;font-size:1rem}
+.goal dt{font-weight:600;font-size:.85rem;margin-top:6px}
+.goal dd{margin:0}
+.strength{border-left:6px solid var(--s4);background:var(--soft);border-radius:10px;padding:10px 12px;margin:8px 0}
+.notes li{margin:4px 0}
+.filter{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.filter .count{font-weight:600;margin-left:auto;align-self:center}
+.copybox{margin-top:8px}
+.tip{background:light-dark(#fff8d6,#2e2a17);border:1px solid light-dark(#efe2a0,#4a4426);border-radius:10px;padding:8px 12px;font-size:.9rem}
+.list .item{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.list .item input{flex:1;min-width:120px}
+.list .item input.short{flex:0 0 90px;min-width:90px}
+.ex td,.ex th{text-align:left;font-size:.9rem;padding:8px}
+.ex td.c{text-align:center}
+.ex td.c .sc{white-space:nowrap}
+.ex td.txt{min-width:280px}
+.exwrap{overflow-x:auto}
+@media (max-width:700px){
+  .ex thead{display:none}
+  .ex,.ex tbody,.ex tr,.ex td{display:block;width:100%}
+  .ex tr{border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:6px 10px;background:var(--card)}
+  .ex td{border:0;padding:4px 0;text-align:left!important}
+  .ex td::before{content:attr(data-l);display:block;font-size:.75rem;color:var(--muted)}
+  .ex td.lname{font-weight:700;font-size:1rem}
+  .ex td.lname::before{display:none}
+  .critrow{grid-template-columns:1fr}
+  .grid td.name{min-width:118px;max-width:140px;font-size:.9rem}
+  .nm{gap:4px}
+  .critrow .info{grid-column:1}
+}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>Klashouding <span id="klasnaam"></span></h1>
+    <div id="status" aria-live="polite">Opgeslagen op dit toestel</div>
+  </div>
+  <nav role="tablist" aria-label="Schermen">
+    <button role="tab" data-tab="beoordelen" aria-selected="true">Beoordelen</button>
+    <button role="tab" data-tab="overzicht" aria-selected="false">Overzicht per kind</button>
+    <button role="tab" data-tab="export" aria-selected="false">Exporteren</button>
+    <button role="tab" data-tab="klas" aria-selected="false">Klas &amp; criteria</button>
+  </nav>
+</header>
+<main>
+  <section id="beoordelen"></section>
+  <section id="overzicht" class="hidden"></section>
+  <section id="export" class="hidden"></section>
+  <section id="klas" class="hidden"></section>
+</main>
+<script>
+'use strict';
+/* ================= Basis ================= */
+const KEY = 'klashouding_v1';
+const MAX_CRITS = 10; // maximum 10 vragen (criteria) per kind per lesmoment
+const SYM = {4:'++',3:'+',2:'±',1:'−'};
+const WORD = {4:'zeer goed',3:'goed',2:'wisselend',1:'werkpunt'};
+const CYCLE = {0:3,3:4,4:2,2:1,1:0}; // leeg → + → ++ → ± → − → leeg
+const DEF_CRITS = [
+  {id:'luisteren',name:'Luisteren',short:'Luist.'},
+  {id:'meewerken',name:'Meewerken',short:'Meew.'},
+  {id:'samenwerken',name:'Samenwerken',short:'Samenw.'},
+  {id:'nauwkeurig',name:'Nauwkeurigheid',short:'Nauwk.'},
+  {id:'werkhouding',name:'Werkhouding',short:'Werkh.'},
+  {id:'zelfstandig',name:'Zelfstandigheid',short:'Zelfst.'},
+  {id:'tempo',name:'Werktempo',short:'Tempo'}
+];
+const DEF_VAKKEN = ["Wiskunde","Taal","Lezen","Spelling","WO","Frans","Muzische","LO","Hoekenwerk","Godsdienst"];
+
+/* Tips: [bij −, bij ±, bij +], aanpak leerkracht */
+const TIPS = {
+  luisteren:{t:['Kijk naar de juf of meester als er uitleg is en herhaal in je hoofd wat je moet doen.','Zeg na de uitleg in één zin wat de opdracht is, voor je begint.','Stel een vraag als iets niet duidelijk is: zo luister je nog actiever.'],a:'Korte instructie met visuele steun; laat de opdracht herhalen voor de start.'},
+  meewerken:{t:['Steek elke les minstens één keer je vinger op om iets te zeggen.','Kies in elke les één moment om iets te vertellen, ook bij onderwerpen die je minder leuk vindt.','Deel je ideeën nog vaker: je klasgenoten leren er ook van.'],a:'Geef een vaste beurt (bv. beurtstokjes) en reageer meteen positief op een inbreng.'},
+  samenwerken:{t:['Luister eerst naar het idee van een ander voor je het jouwe vertelt.','Spreek bij groepswerk af wie wat doet, en help als iemand vastzit.','Neem eens de leiding en zorg dat iedereen in je groep aan bod komt.'],a:'Geef duidelijke rollen in groepjes (tijdbewaker, verslaggever) en bespreek kort hoe het ging.'},
+  nauwkeurig:{t:['Lees de opdracht twee keer en kijk je werk na voor je het afgeeft.','Gebruik je controlelijstje: naam, opdracht gelezen, alles ingevuld, nagekeken.','Zoek zelf nog één foutje voor je je werk afgeeft.'],a:'Voorzie een vast nakijklijstje en laat het kind zelf eerst één fout zoeken.'},
+  werkhouding:{t:['Begin meteen aan je taak en leg weg wat je niet nodig hebt.','Werk door tot je taak af is en zet een vinkje bij elke stap die klaar is.','Zoek zelf een extra uitdaging als je klaar bent.'],a:'Deel taken op in kleine stappen met een duidelijk eindpunt; maak de voortgang zichtbaar.'},
+  zelfstandig:{t:['Probeer eerst zelf, kijk dan naar het voorbeeld en vraag pas daarna hulp.','Gebruik de stappen op het bord of je hulpkaart voor je hulp vraagt.','Plan zelf je taken en kies wat je eerst doet.'],a:'Werk met de regel "eerst zelf, dan een klasgenoot, dan de juf/meester" en een hulpkaart.'},
+  tempo:{t:['Werk in kleine stukjes: maak eerst drie oefeningen en kijk dan hoe ver je staat.','Spreek met jezelf een tijd af en kijk op de klok hoe ver je bent.','Houd je goede tempo vast zonder te haasten: nauwkeurig blijft belangrijk.'],a:'Gebruik een zichtbare timer en tussentijdse controlemomenten; kort de taak in waar nodig.'}
+};
+/* Rapportzinnen [−, ±, +, ++] */
+const RAP = {
+  luisteren:['moet nog leren aandachtig te luisteren','luistert niet altijd even aandachtig','luistert goed','luistert heel aandachtig'],
+  meewerken:['kan actiever meewerken in de les','werkt wisselend mee in de les','werkt goed mee in de les','werkt enthousiast mee in de les'],
+  samenwerken:['moet nog groeien in samenwerken','werkt niet altijd vlot samen','werkt goed samen met anderen','werkt heel fijn samen met anderen'],
+  nauwkeurig:['moet nauwkeuriger leren werken','werkt niet altijd even nauwkeurig','werkt nauwkeurig','werkt heel nauwkeurig en verzorgd'],
+  werkhouding:['moet nog groeien in een goede werkhouding','toont een wisselende werkhouding','toont een goede werkhouding','toont een sterke werkhouding'],
+  zelfstandig:['heeft nog veel begeleiding nodig','werkt niet altijd zelfstandig','werkt zelfstandig','werkt heel zelfstandig'],
+  tempo:['moet nog werken aan een vlot werktempo','werkt in een wisselend tempo','werkt in een goed tempo','werkt in een vlot tempo']
+};
+function isStd(c){const d=DEF_CRITS.find(x=>x.id===c.id);return d&&d.name===c.name;}
+function tipsFor(c){
+  if(isStd(c)) return TIPS[c.id];
+  const X=c.name;
+  return {t:[`Kies samen met de juf of meester één klein doel voor ${X} en oefen het elke dag.`,`Let in elke les bewust op ${X} en kijk achteraf even terug hoe het ging.`,`Je doet het goed voor ${X}: laat het nu ook in elk vak zien.`],a:`Bespreek één concreet, haalbaar doel rond ${X} en geef er wekelijks kort feedback op.`};
+}
+function rapFor(c,lvl){
+  if(isStd(c)) return RAP[c.id][lvl-1];
+  const x=c.name.toLowerCase();
+  return [`kan nog groeien in ${x}`,`scoort wisselend voor ${x}`,`scoort goed voor ${x}`,`scoort zeer goed voor ${x}`][lvl-1];
+}
+
+const $=(s,el=document)=>el.querySelector(s);
+const $$=(s,el=document)=>[...el.querySelectorAll(s)];
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function uid(p='x'){return p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function todayStr(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+const DAGEN=['zo','ma','di','wo','do','vr','za'];
+const MAANDEN=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+function fmtDate(s){const [y,m,d]=s.split('-').map(Number);const dt=new Date(y,m-1,d);return DAGEN[dt.getDay()]+' '+d+' '+MAANDEN[m-1];}
+function comma(n){return n.toFixed(1).replace('.',',');}
+function level(avg){return avg>=3.5?4:avg>=2.5?3:avg>=1.75?2:1;}
+function firstName(n){return String(n).trim().split(/\s+/)[0]||n;}
+function joinList(a){return a.length<=1?(a[0]||''):a.slice(0,-1).join(', ')+' en '+a[a.length-1];}
+function mean(a){return a.reduce((x,y)=>x+y,0)/a.length;}
+
+/* ================= Opslag ================= */
+function defaultCfg(){return {klas:'3B',kids:[],crits:DEF_CRITS.map(c=>({...c})),vakken:[...DEF_VAKKEN]};}
+let S={cfg:defaultCfg(),M:{}};
+function load(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){const d=JSON.parse(raw);if(valid(d)) S=d;}
+  }catch(e){setStatus('Laden mislukt: gegevens niet leesbaar',true);}
+}
+function valid(d){return d&&d.cfg&&Array.isArray(d.cfg.kids)&&Array.isArray(d.cfg.crits)&&d.M&&typeof d.M==='object'&&!Array.isArray(d.M);}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));setStatus('Opgeslagen op dit toestel');}
+  catch(e){setStatus('Opslaan mislukt!',true);}
+}
+function setStatus(t,bad){const el=$('#status');el.textContent=t;el.classList.toggle('bad',!!bad);}
+
+/* ================= UI-toestand ================= */
+const UI={tab:'beoordelen',cur:null,form:null,filter:{from:'',to:'',vak:''},kid:null,exMode:'woorden',exTekst:true,exGroei:true};
+
+function critById(id){return S.cfg.crits.find(c=>c.id===id);}
+function momentsSorted(){return Object.values(S.M).sort((a,b)=>a.date===b.date?b.ts-a.ts:(a.date<b.date?1:-1));}
+function momentLabel(m){return fmtDate(m.date)+' · '+m.vak+(m.title?' · '+m.title:'');}
+
+/* ================= Tabs ================= */
+$('nav').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b) showTab(b.dataset.tab);});
+function showTab(t){
+  UI.tab=t;
+  $$('nav [data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
+  $$('main>section').forEach(s=>s.classList.toggle('hidden',s.id!==t));
+  render();
+  window.scrollTo(0,0);
+}
+function render(){
+  $('#klasnaam').textContent=S.cfg.klas||'';
+  ({beoordelen:renderBeoordelen,overzicht:renderOverzicht,export:renderExport,klas:renderKlas})[UI.tab]();
+}
+
+/* Bevestigen met twee tikken */
+function armed(btn,action){
+  if(btn.classList.contains('armed')){clearTimeout(btn._t);action();return;}
+  btn._txt=btn.textContent;btn.textContent='Zeker? Tik opnieuw';btn.classList.add('armed');
+  btn._t=setTimeout(()=>{btn.classList.remove('armed');btn.textContent=btn._txt;},4000);
+}
+
+/* ================= A. Beoordelen ================= */
+function renderBeoordelen(){
+  const el=$('#beoordelen');
+  if(!S.cfg.kids.length){
+    el.innerHTML=`<h2>Welkom!</h2>
+    <div class="card">
+      <p>Plak de namen van je leerlingen, één per regel.</p>
+      <textarea id="newKids" placeholder="Emma&#10;Noah&#10;Lina"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" data-act="addKidsStart">Leerlingen toevoegen</button>
+        <button data-act="demo">Probeer met een voorbeeldklas</button>
+      </div>
+      <div class="msg err" id="startMsg"></div>
+    </div>`;
+    return;
+  }
+  const ms=momentsSorted();
+  if(UI.cur&&!S.M[UI.cur]) UI.cur=null;
+  if(!UI.cur&&!UI.form&&ms.length) UI.cur=ms[0].id;
+  if(!UI.cur&&!UI.form) UI.form=newForm();
+  let h=`<div class="row"><label style="flex:1;min-width:220px">Lesmoment
+    <select id="momSel"><option value="__new">+ Nieuw lesmoment</option>
+    ${ms.map(m=>`<option value="${esc(m.id)}"${!UI.form&&UI.cur===m.id?' selected':''}>${esc(momentLabel(m))}</option>`).join('')}
+    </select></label>`;
+  if(!UI.form&&UI.cur) h+=`<button data-act="edit">Wijzig</button><button class="danger" data-act="delMoment">Verwijder</button>`;
+  h+=`</div>`;
+  if(UI.form){
+    h+=renderForm();
+  }else{
+    h+=renderGrid(S.M[UI.cur]);
+  }
+  el.innerHTML=h;
+  if(UI.form) $('#momSel').value='__new';
+  if(UI.form&&UI.form.id) $('#momSel').value=UI.form.id;
+}
+function newForm(){
+  const prev=momentsSorted()[0];
+  let crits=prev?prev.crits.filter(id=>critById(id)):S.cfg.crits.slice(0,5).map(c=>c.id);
+  if(!crits.length) crits=S.cfg.crits.slice(0,5).map(c=>c.id);
+  return {id:null,date:todayStr(),vak:'',title:'',crits:crits.slice(0,MAX_CRITS)};
+}
+function renderForm(){
+  const f=UI.form;const own=f.vak&&!S.cfg.vakken.includes(f.vak);
+  return `<div class="card"><h2>${f.id?'Lesmoment wijzigen':'Nieuw lesmoment'}</h2>
+  <div class="row"><label>Datum<input type="date" id="fDate" value="${esc(f.date)}"></label></div>
+  <h3>Vak</h3>
+  <div class="chips" id="fVak">${S.cfg.vakken.map(v=>`<button class="chip" data-act="vak" data-v="${esc(v)}" aria-pressed="${f.vak===v}">${esc(v)}</button>`).join('')}</div>
+  <div class="row" style="margin-top:8px"><label>Ander vak<input id="fVakOwn" placeholder="ander…" value="${own?esc(f.vak):''}"></label></div>
+  <div class="row" style="margin-top:8px"><label style="flex:1">Omschrijving (optioneel)<input id="fTitle" value="${esc(f.title)}" placeholder="bv. breuken"></label></div>
+  <h3>Waarop let je? <span class="muted small" id="fCount">(${f.crits.length} van max. ${MAX_CRITS})</span></h3>
+  <div class="chips" id="fCrits">${S.cfg.crits.map(c=>`<button class="chip" data-act="crit" data-c="${esc(c.id)}" aria-pressed="${f.crits.includes(c.id)}">${esc(c.name)}</button>`).join('')}</div>
+  <p class="muted small">Elk kind krijgt per lesmoment maximum ${MAX_CRITS} vragen (criteria).</p>
+  <div class="msg err" id="fMsg"></div>
+  <div class="row"><button class="primary" data-act="saveForm">${f.id?'Opslaan':'Start beoordelen'}</button>
+  ${f.id||Object.keys(S.M).length?'<button data-act="cancelForm">Annuleer</button>':''}</div></div>`;
+}
+function legend(){
+  return `<div class="legend"><span class="muted">Tik: leeg →</span><span class="sc s3">+</span>→<span class="sc s4">++</span>→<span class="sc s2">±</span>→<span class="sc s1">−</span>→ leeg</div>`;
+}
+function renderGrid(m){
+  const crits=m.crits.map(critById).filter(Boolean);
+  let h=legend()+`<div class="gridwrap"><table class="grid"><thead><tr><th class="name">Leerling</th>`;
+  h+=crits.map(c=>`<th title="${esc(c.name)}">${esc(c.short||c.name)}<br><button class="fill" data-act="fill" data-c="${esc(c.id)}">lege → +</button></th>`).join('');
+  h+=`<th style="min-width:170px">Notitie</th></tr></thead><tbody>`;
+  for(const k of S.cfg.kids){
+    const ab=!!(m.absent&&m.absent[k.id]);const sc=(m.scores&&m.scores[k.id])||{};
+    h+=`<tr data-kid="${esc(k.id)}" class="${ab?'absent':''}"><td class="name"><div class="nm"><span>${esc(k.name)}</span><button class="absbtn" data-act="abs" aria-pressed="${ab}" title="Afwezig">afw.</button></div></td>`;
+    h+=crits.map(c=>{const v=sc[c.id]||0;return `<td><button class="cell ${v?'s'+v:''}" data-act="cell" data-c="${esc(c.id)}" aria-label="${esc(k.name)} – ${esc(c.name)}: ${v?WORD[v]:'leeg'}">${v?SYM[v]:''}</button></td>`;}).join('');
+    h+=`<td><input class="note" data-act="note" value="${esc((m.notes&&m.notes[k.id])||'')}" placeholder="notitie…" aria-label="Notitie ${esc(k.name)}"></td></tr>`;
+  }
+  h+=`</tbody></table></div><div class="progress" id="progress">${progressText(m)}</div>`;
+  return h;
+}
+function progressText(m){
+  let full=0,abs=0;const crits=m.crits.filter(id=>critById(id));
+  for(const k of S.cfg.kids){
+    if(m.absent&&m.absent[k.id]){abs++;continue;}
+    const sc=(m.scores&&m.scores[k.id])||{};
+    if(crits.length&&crits.every(c=>sc[c])) full++;
+  }
+  return `${full} van ${S.cfg.kids.length-abs} leerlingen volledig beoordeeld${abs?` · ${abs} afwezig`:''}`;
+}
+function setCell(btn,v,name,cname){
+  btn.className='cell '+(v?'s'+v:'');btn.textContent=v?SYM[v]:'';
+  btn.setAttribute('aria-label',`${name} – ${cname}: ${v?WORD[v]:'leeg'}`);
+}
+$('#beoordelen').addEventListener('change',e=>{
+  if(e.target.id==='momSel'){
+    const v=e.target.value;
+    if(v==='__new'){UI.form=newForm();UI.cur=null;}else{UI.form=null;UI.cur=v;}
+    renderBeoordelen();
+  }
+  if(e.target.id==='fDate'&&UI.form) UI.form.date=e.target.value;
+});
+$('#beoordelen').addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.act==='note'){
+    const m=S.M[UI.cur];const kid=t.closest('tr').dataset.kid;
+    m.notes=m.notes||{};
+    if(t.value.trim()) m.notes[kid]=t.value; else delete m.notes[kid];
+    save();
+  }
+  if(UI.form){
+    if(t.id==='fTitle') UI.form.title=t.value;
+    if(t.id==='fDate') UI.form.date=t.value;
+    if(t.id==='fVakOwn'){UI.form.vak=t.value.trim();$$('#fVak .chip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===UI.form.vak));}
+  }
+});
+$('#beoordelen').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b) return;
+  const act=b.dataset.act;
+  if(act==='addKidsStart'){
+    const names=$('#newKids').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(!names.length){$('#startMsg').textContent='Plak eerst minstens één naam.';return;}
+    names.forEach(n=>S.cfg.kids.push({id:uid('k'),name:n}));save();render();return;
+  }
+  if(act==='demo'){loadDemo();return;}
+  if(act==='vak'){UI.form.vak=b.dataset.v;$('#fVakOwn').value='';$$('#fVak .chip').forEach(x=>x.setAttribute('aria-pressed',x===b));return;}
+  if(act==='crit'){
+    const id=b.dataset.c;const f=UI.form;const i=f.crits.indexOf(id);
+    if(i>=0) f.crits.splice(i,1);
+    else{
+      if(f.crits.length>=MAX_CRITS){$('#fMsg').textContent=`Maximum ${MAX_CRITS} criteria per lesmoment: elk kind krijgt zo hoogstens ${MAX_CRITS} vragen. Zet eerst een ander criterium uit.`;return;}
+      f.crits.push(id);
+    }
+    $('#fMsg').textContent='';
+    b.setAttribute('aria-pressed',f.crits.includes(id));
+    $('#fCount').textContent=`(${f.crits.length} van max. ${MAX_CRITS})`;
+    return;
+  }
+  if(act==='saveForm'){
+    const f=UI.form;f.date=$('#fDate').value||todayStr();f.title=$('#fTitle').value.trim();
+    const own=$('#fVakOwn').value.trim();if(own) f.vak=own;
+    const errs=[];
+    if(!f.vak) errs.push('Kies een vak.');
+    if(!f.crits.length) errs.push('Kies minstens één criterium.');
+    if(f.crits.length>MAX_CRITS) errs.push(`Kies maximum ${MAX_CRITS} criteria.`);
+    if(errs.length){$('#fMsg').textContent=errs.join(' ');return;}
+    const order=S.cfg.crits.map(c=>c.id);
+    const crits=[...f.crits].sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+    if(f.id){const m=S.M[f.id];Object.assign(m,{date:f.date,vak:f.vak,title:f.title,crits});UI.cur=f.id;}
+    else{const id=uid('m');S.M[id]={id,ts:Date.now(),date:f.date,vak:f.vak,title:f.title,crits,scores:{},notes:{},absent:{}};UI.cur=id;}
+    UI.form=null;save();renderBeoordelen();return;
+  }
+  if(act==='cancelForm'){UI.form=null;if(!UI.cur){const ms=momentsSorted();UI.cur=ms[0]?ms[0].id:null;}renderBeoordelen();return;}
+  if(act==='edit'){const m=S.M[UI.cur];UI.form={id:m.id,date:m.date,vak:m.vak,title:m.title||'',crits:[...m.crits]};renderBeoordelen();return;}
+  if(act==='delMoment'){armed(b,()=>{delete S.M[UI.cur];UI.cur=null;save();renderBeoordelen();});return;}
+  const m=S.M[UI.cur];if(!m) return;
+  if(act==='cell'){
+    const tr=b.closest('tr');const kid=tr.dataset.kid;const c=b.dataset.c;m.scores=m.scores||{};
+    m.scores[kid]=m.scores[kid]||{};
+    const nv=CYCLE[m.scores[kid][c]||0];
+    if(nv) m.scores[kid][c]=nv; else delete m.scores[kid][c];
+    setCell(b,nv,S.cfg.kids.find(k=>k.id===kid).name,critById(c).name);
+    $('#progress').textContent=progressText(m);save();return;
+  }
+  if(act==='fill'){
+    const c=b.dataset.c;
+    $$('#beoordelen tbody tr').forEach(tr=>{
+      const kid=tr.dataset.kid;if(m.absent&&m.absent[kid]) return;m.scores=m.scores||{};
+      m.scores[kid]=m.scores[kid]||{};
+      if(!m.scores[kid][c]){m.scores[kid][c]=3;setCell($(`.cell[data-c="${CSS.escape(c)}"]`,tr),3,S.cfg.kids.find(k=>k.id===kid).name,critById(c).name);}
+    });
+    $('#progress').textContent=progressText(m);save();return;
+  }
+  if(act==='abs'){
+    const tr=b.closest('tr');const kid=tr.dataset.kid;m.absent=m.absent||{};
+    if(m.absent[kid]) delete m.absent[kid]; else m.absent[kid]=true;
+    const ab=!!m.absent[kid];tr.classList.toggle('absent',ab);b.setAttribute('aria-pressed',ab);
+    $('#progress').textContent=progressText(m);save();return;
+  }
+});
+
+/* Voorbeeldklas */
+function loadDemo(){
+  let seed=7;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280;};
+  const names=['Emma Peeters','Noah Janssens','Lina Maes','Lucas Claes','Mila Wouters','Finn De Smet','Ella Goossens','Arthur Willems'];
+  const kids=names.map((n,i)=>({id:'k'+(i+1),name:n}));
+  // profiel per kind: basis + afwijkingen per criterium
+  const prof={k1:{b:3.4,nauwkeurig:.5,luisteren:.4,samenwerken:-.9},k2:{b:2.3,nauwkeurig:-.3,meewerken:-.2,tempo:.4},k3:{b:3.8},k4:{b:2.9,luisteren:-.8,tempo:-.6},k5:{b:3.1,zelfstandig:-.9},k6:{b:2.7,werkhouding:-.6,samenwerken:.6},k7:{b:3.3,meewerken:-1},k8:{b:3.0,nauwkeurig:-.8}};
+  const plan=[['Wiskunde','breuken',['luisteren','meewerken','nauwkeurig','werkhouding','zelfstandig'],-24],['Taal','spreekbeurt',['luisteren','meewerken','samenwerken','werkhouding','tempo'],-20],['WO','proefjes in groep',['luisteren','samenwerken','nauwkeurig','werkhouding','zelfstandig'],-15],['Wiskunde','hoofdrekenen',['luisteren','meewerken','nauwkeurig','werkhouding','tempo'],-10],['Spelling','dictee',['luisteren','nauwkeurig','werkhouding','zelfstandig','tempo'],-5],['Hoekenwerk','',['meewerken','samenwerken','nauwkeurig','werkhouding','zelfstandig'],-1]];
+  const M={};
+  plan.forEach(([vak,title,crits,off],i)=>{
+    const d=new Date();d.setDate(d.getDate()+off);
+    const id='mdemo'+(i+1);const scores={},notes={},absent={};
+    kids.forEach((k,ki)=>{
+      if(i===2&&ki===3){absent[k.id]=true;return;}
+      scores[k.id]={};
+      crits.forEach(c=>{
+        let v=prof[k.id].b+(prof[k.id][c]||0)+(rnd()-.5)*1.1;
+        if(k.id==='k2'&&vak==='Wiskunde'&&c==='nauwkeurig') v-=.8;
+        if(k.id==='k4'&&c==='luisteren') v+=i*.25-.6; // groeit
+        if(k.id==='k8'&&c==='werkhouding') v-=i*.3-.4; // daalt
+        scores[k.id][c]=Math.max(1,Math.min(4,Math.round(v)));
+      });
+    });
+    if(i===1) notes.k2='vergat zijn blad';
+    if(i===3) notes.k1='hielp spontaan een klasgenoot';
+    if(i===4) notes.k4='zat vooraan, ging beter';
+    M[id]={id,ts:Date.now()-(10-i)*1000,date:todayStr(d),vak,title,crits,scores,notes,absent};
+  });
+  S={cfg:{klas:'3B',kids,crits:DEF_CRITS.map(c=>({...c})),vakken:[...DEF_VAKKEN]},M};
+  UI.cur=null;UI.form=null;UI.kid=null;save();render();
+}
+
+/* ================= Statistiek ================= */
+function filteredMoments(){
+  const f=UI.filter;
+  return Object.values(S.M).filter(m=>(!f.from||m.date>=f.from)&&(!f.to||m.date<=f.to)&&(!f.vak||m.vak===f.vak))
+    .sort((a,b)=>a.date===b.date?a.ts-b.ts:(a.date<b.date?-1:1));
+}
+function kidStats(kid,ms){
+  const per={};let lessons=0;
+  for(const m of ms){
+    if(m.absent&&m.absent[kid.id]) continue;
+    const sc=(m.scores&&m.scores[kid.id])||{};let any=false;
+    for(const cid of m.crits){
+      const v=sc[cid];if(!v) continue;any=true;
+      (per[cid]=per[cid]||[]).push({v,vak:m.vak,date:m.date});
+    }
+    if(any) lessons++;
+  }
+  const res={};
+  for(const c of S.cfg.crits){
+    const arr=per[c.id];if(!arr) continue;
+    const vals=arr.map(x=>x.v);const avg=mean(vals);
+    let trend=0;
+    if(vals.length>=5){const last=mean(vals.slice(-3)),early=mean(vals.slice(0,-3));if(last-early>=.5) trend=1;else if(early-last>=.5) trend=-1;}
+    const byVak={};arr.forEach(x=>(byVak[x.vak]=byVak[x.vak]||[]).push(x.v));
+    const dist={1:0,2:0,3:0,4:0};vals.forEach(v=>dist[v]++);
+    res[c.id]={c,n:vals.length,avg,lvl:level(avg),trend,byVak,dist,low:dist[1]+dist[2]};
+  }
+  return {per:res,lessons};
+}
+function weakVak(st){
+  const vaks=Object.keys(st.byVak);if(vaks.length<2) return null;
+  let best=null;
+  for(const v of vaks){const a=st.byVak[v];if(a.length<2) continue;const av=mean(a);if(st.avg-av>=.4&&(!best||av<best.av)) best={v,av};}
+  return best&&best.v;
+}
+function rapportTekst(kid,stats){
+  const list=S.cfg.crits.map(c=>stats.per[c.id]).filter(Boolean);
+  if(!list.length) return 'Nog geen beoordelingen in deze selectie.';
+  const vn=firstName(kid.name);
+  const strong=list.filter(s=>s.lvl>=3).sort((a,b)=>b.avg-a.avg).map(s=>rapFor(s.c,s.lvl));
+  const weak=list.filter(s=>s.lvl<=2).sort((a,b)=>a.avg-b.avg).map(s=>rapFor(s.c,s.lvl));
+  if(!strong.length) return `${vn} ${joinList(weak)}.`;
+  let t=`${vn} ${joinList(strong)}.`;
+  if(weak.length) t+=` ${weak.length>1?'Aandachtspunten':'Aandachtspunt'}: ${vn} ${joinList(weak)}.`;
+  return t;
+}
+function tipIdx(lvl){return lvl<=1?0:lvl===2?1:2;}
+function groei(kid,stats){
+  const list=S.cfg.crits.map(c=>stats.per[c.id]).filter(Boolean);
+  const vn=firstName(kid.name);
+  if(!list.length) return {empty:true,text:'Nog geen beoordelingen in deze selectie.',short:''};
+  const top=[...list].sort((a,b)=>b.avg-a.avg)[0];
+  const strength=top.lvl>=3?`Dit gaat al goed: ${vn} ${rapFor(top.c,top.lvl)}.`:'';
+  let goals=list.filter(s=>s.lvl<=2||s.trend<0).sort((a,b)=>(a.avg-(a.trend<0?.75:0))-(b.avg-(b.trend<0?.75:0))).slice(0,2);
+  let kind='Groeidoel',allTop=false;
+  if(!goals.length){
+    const notTop=list.filter(s=>s.lvl<4).sort((a,b)=>a.avg-b.avg);
+    if(notTop.length){goals=[notTop[0]];kind='Volgende stap';}else allTop=true;
+  }
+  const cards=goals.map(s=>{
+    const tp=tipsFor(s.c);const parts=[];
+    parts.push(s.low?`${s.low} van de ${s.n} keer ± of −`:`${s.n} keer beoordeeld, gemiddeld ${WORD[s.lvl]}`);
+    const wv=weakVak(s);if(wv) parts[0]+=`, vooral tijdens ${wv}`;
+    let tr='';if(s.trend<0) tr='de laatste lessen ging het minder vlot';else if(s.trend>0) tr='de laatste lessen gaat het al beter';
+    const zien=parts[0]+(tr?'; '+tr:'');
+    return {s,kind,zien,tip:tp.t[tipIdx(s.lvl)],aanpak:tp.a};
+  });
+  let lines=[];if(strength) lines.push(strength);
+  if(allTop) lines.push(`${vn} scoort op alles zeer goed. Volgende stap: help een klasgenoot of kies zelf een extra uitdaging.`);
+  cards.forEach(c=>lines.push(`${c.kind} – ${c.s.c.name}: ${c.tip}`));
+  const short=allTop?'Volgende stap: help een klasgenoot of kies zelf een extra uitdaging.':cards.map(c=>`${c.s.c.name}: ${c.tip}`).join(' | ');
+  return {strength,cards,allTop,text:lines.join('\n'),short,vn};
+}
+
+/* ================= Filterbalk (B en C) ================= */
+function filterBar(prefix){
+  const f=UI.filter;const vaks=[...new Set([...S.cfg.vakken,...Object.values(S.M).map(m=>m.vak)])];
+  return `<div class="card filter" data-filter>
+    <label>Van<input type="date" data-f="from" value="${esc(f.from)}"></label>
+    <label>Tot<input type="date" data-f="to" value="${esc(f.to)}"></label>
+    <label>Vak<select data-f="vak"><option value="">Alle vakken</option>${vaks.map(v=>`<option${f.vak===v?' selected':''}>${esc(v)}</option>`).join('')}</select></label>
+    <div class="row"><button data-q="all">Alles</button><button data-q="sept">Sinds 1 september</button><button data-q="6w">Laatste 6 weken</button></div>
+    <span class="count">${filteredMoments().length} lesmomenten</span></div>`;
+}
+function onFilter(e){
+  const t=e.target;
+  if(t.dataset&&t.dataset.f){UI.filter[t.dataset.f]=t.value;render();return true;}
+  const q=t.closest&&t.closest('[data-q]');
+  if(q){
+    const now=new Date();
+    if(q.dataset.q==='all'){UI.filter.from='';UI.filter.to='';}
+    if(q.dataset.q==='sept'){const y=now.getMonth()>=8?now.getFullYear():now.getFullYear()-1;UI.filter.from=y+'-09-01';UI.filter.to='';}
+    if(q.dataset.q==='6w'){const d=new Date();d.setDate(d.getDate()-42);UI.filter.from=todayStr(d);UI.filter.to='';}
+    render();return true;
+  }
+  return false;
+}
+
+/* ================= B. Overzicht ================= */
+function avgCell(st){
+  if(!st) return '<span class="muted">–</span>';
+  return `<span class="avg s${st.lvl}" title="${WORD[st.lvl]} (gem. ${comma(st.avg)})">${SYM[st.lvl]}<small>${st.n}×</small></span>`;
+}
+function renderOverzicht(){
+  const el=$('#overzicht');
+  if(!S.cfg.kids.length){el.innerHTML='<p>Voeg eerst leerlingen toe bij <b>Beoordelen</b> of <b>Klas &amp; criteria</b>.</p>';return;}
+  const ms=filteredMoments();
+  let h=filterBar()+`<div class="gridwrap"><table class="ov"><thead><tr><th class="name">Leerling</th>${S.cfg.crits.map(c=>`<th title="${esc(c.name)}">${esc(c.short||c.name)}</th>`).join('')}<th>Lessen</th></tr></thead><tbody>`;
+  const all={};
+  for(const k of S.cfg.kids){
+    const st=kidStats(k,ms);all[k.id]=st;
+    h+=`<tr class="${UI.kid===k.id?'sel':''}"><td class="name"><button data-kid="${esc(k.id)}" aria-expanded="${UI.kid===k.id}">${esc(k.name)}</button></td>${S.cfg.crits.map(c=>`<td>${avgCell(st.per[c.id])}</td>`).join('')}<td>${st.lessons}</td></tr>`;
+  }
+  h+='</tbody></table></div>';
+  const kid=S.cfg.kids.find(k=>k.id===UI.kid);
+  if(kid) h+=renderDetail(kid,all[kid.id],ms);
+  else h+='<p class="muted">Tik op een leerling voor de details, groeifeedback en rapporttekst.</p>';
+  el.innerHTML=h;
+}
+function renderDetail(kid,st,ms){
+  const g=groei(kid,st);
+  let h=`<div class="card" id="detail"><h2>${esc(kid.name)}</h2>`;
+  const list=S.cfg.crits.map(c=>st.per[c.id]).filter(Boolean);
+  if(!list.length) h+='<p>Nog geen beoordelingen in deze selectie.</p>';
+  for(const s of list){
+    const tot=s.n;
+    h+=`<div class="critrow"><b>${esc(s.c.name)}</b><div class="dist" role="img" aria-label="${[4,3,2,1].map(v=>SYM[v]+' '+s.dist[v]).join(', ')}">${[4,3,2,1].map(v=>s.dist[v]?`<div class="s${v}" style="width:${s.dist[v]/tot*100}%"></div>`:'').join('')}</div>
+    <div class="info"><span class="sc s${s.lvl}" style="padding:0 6px">${SYM[s.lvl]}</span> ${WORD[s.lvl]} · gem. ${comma(s.avg)} · ${s.n}× ${s.trend>0?'<span class="up">↑ groeit</span>':s.trend<0?'<span class="down">↓ daalt</span>':''}</div></div>`;
+  }
+  h+=`<h3>Groeifeedback</h3>`;
+  if(!g.empty){
+    if(g.strength) h+=`<div class="strength">${esc(g.strength)}</div>`;
+    if(g.allTop) h+=`<div class="strength">${esc(g.vn)} scoort op alles zeer goed. Volgende stap: help een klasgenoot of kies zelf een extra uitdaging.</div>`;
+    for(const c of g.cards){
+      h+=`<div class="goal l${c.s.lvl}"><h4>${c.kind} – ${esc(c.s.c.name)} <span class="sc s${c.s.lvl}" style="padding:0 6px">${SYM[c.s.lvl]}</span></h4><dl>
+      <dt>Wat we zien</dt><dd>${esc(c.zien)}</dd>
+      <dt>Tip voor ${esc(g.vn)}</dt><dd>${esc(c.tip)}</dd>
+      <dt>Aanpak in de klas</dt><dd>${esc(c.aanpak)}</dd></dl></div>`;
+    }
+  }
+  h+=`<textarea id="groeiTxt" aria-label="Groeifeedback">${esc(g.text)}</textarea>
+  <div class="row"><button data-copy="groeiTxt">Kopieer tekst</button></div><div class="copyslot"></div>`;
+  h+=`<h3>Rapporttekst</h3><textarea id="rapTxt" aria-label="Rapporttekst">${esc(rapportTekst(kid,st))}</textarea>
+  <div class="row"><button data-copy="rapTxt">Kopieer tekst</button></div><div class="copyslot"></div>`;
+  const notes=[...ms].reverse().filter(m=>m.notes&&m.notes[kid.id]).map(m=>`<li><b>${esc(fmtDate(m.date))} · ${esc(m.vak)}</b>: ${esc(m.notes[kid.id])}</li>`);
+  h+=`<h3>Notities</h3>${notes.length?`<ul class="notes">${notes.join('')}</ul>`:'<p class="muted">Geen notities in deze selectie.</p>'}</div>`;
+  return h;
+}
+$('#overzicht').addEventListener('change',e=>onFilter(e));
+$('#overzicht').addEventListener('click',e=>{
+  if(onFilter(e)) return;
+  const k=e.target.closest('[data-kid]');
+  if(k){UI.kid=UI.kid===k.dataset.kid?null:k.dataset.kid;renderOverzicht();const d=$('#detail');if(d) d.scrollIntoView({behavior:'smooth',block:'start'});return;}
+  const c=e.target.closest('[data-copy]');
+  if(c){const ta=$('#'+c.dataset.copy);copyText(ta.value,c.parentElement.nextElementSibling);}
+});
+
+/* ================= Kopiëren ================= */
+async function copyText(text,slot){
+  let ok=false;
+  try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);ok=true;}}catch(e){}
+  if(!ok){
+    try{const ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,text.length);ok=document.execCommand('copy');ta.remove();}catch(e){ok=false;}
+  }
+  if(!slot) return;
+  if(ok){slot.innerHTML='<p class="msg ok">Gekopieerd! Je kan nu plakken.</p>';setTimeout(()=>{slot.innerHTML='';},2500);}
+  else{
+    slot.innerHTML='<p class="msg err">Kopiëren lukte niet automatisch. De tekst staat hieronder geselecteerd: kopieer hem zelf.</p><textarea class="copybox" readonly></textarea>';
+    const ta=$('textarea',slot);ta.value=text;ta.focus();ta.select();ta.setSelectionRange(0,text.length);
+  }
+}
+
+/* ================= C. Exporteren ================= */
+function exportVal(st){
+  if(!st) return '';
+  if(UI.exMode==='woorden') return WORD[st.lvl];
+  if(UI.exMode==='symbolen') return SYM[st.lvl];
+  return comma(st.avg);
+}
+function exportRows(){
+  const ms=filteredMoments();
+  return S.cfg.kids.map(k=>{const st=kidStats(k,ms);return {k,st,vals:S.cfg.crits.map(c=>exportVal(st.per[c.id])),tekst:rapportTekst(k,st),groei:groei(k,st)};});
+}
+function exportHeader(){const h=['Leerling',...S.cfg.crits.map(c=>c.name)];if(UI.exTekst) h.push('Rapporttekst');if(UI.exGroei) h.push('Groeifeedback');return h;}
+function exportMatrix(){
+  return exportRows().map(r=>{const a=[r.k.name,...r.vals];if(UI.exTekst) a.push(r.tekst);if(UI.exGroei) a.push(r.groei.short||r.groei.text);return a;});
+}
+function renderExport(){
+  const el=$('#export');
+  if(!S.cfg.kids.length){el.innerHTML='<p>Voeg eerst leerlingen toe.</p>';return;}
+  const rows=exportRows();const head=exportHeader();
+  let h=filterBar()+`<div class="card"><div class="row" role="radiogroup" aria-label="Weergave">
+    ${[['woorden','Woorden (zeer goed / goed / …)'],['symbolen','Symbolen (++ + ± −)'],['gemiddelde','Gemiddelde op 4']].map(([v,l])=>`<label class="check"><input type="radio" name="exMode" value="${v}"${UI.exMode===v?' checked':''}> ${l}</label>`).join('')}
+  </div><div class="row">
+    <label class="check"><input type="checkbox" id="exTekst"${UI.exTekst?' checked':''}> Rapporttekst meenemen</label>
+    <label class="check"><input type="checkbox" id="exGroei"${UI.exGroei?' checked':''}> Groeifeedback meenemen</label>
+  </div>
+  <p class="tip">Tip: plak je in Excel, kies dan beter <b>woorden</b>. Excel leest een + als het begin van een formule.</p>
+  <div class="row">
+    <button class="primary" data-ex="table">Kopieer tabel</button>
+    <button data-ex="csv">Download als CSV (Excel)</button>
+    <button data-ex="teksten">Kopieer alle rapportteksten</button>
+    <button data-ex="groei">Kopieer alle groeifeedback</button>
+  </div><div class="copyslot" id="exSlot"></div></div>
+  <div class="exwrap"><table class="ex"><thead><tr>${head.map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>`;
+  for(const r of rows){
+    h+=`<tr><td class="lname" data-l="Leerling">${esc(r.k.name)}</td>${S.cfg.crits.map((c,i)=>{const st=r.st.per[c.id];return `<td class="c" data-l="${esc(c.name)}">${st?`<span class="sc s${st.lvl}" style="padding:2px 8px">${esc(r.vals[i])}</span>`:'<span class="muted">–</span>'}</td>`;}).join('')}
+    ${UI.exTekst?`<td class="txt" data-l="Rapporttekst">${esc(r.tekst)}</td>`:''}${UI.exGroei?`<td class="txt" data-l="Groeifeedback">${esc(r.groei.short||r.groei.text)}</td>`:''}</tr>`;
+  }
+  h+='</tbody></table></div>';
+  el.innerHTML=h;
+}
+function cleanCell(s){return String(s).replace(/[\t\r\n]+/g,' ');}
+$('#export').addEventListener('change',e=>{
+  if(onFilter(e)) return;
+  const t=e.target;
+  if(t.name==='exMode') UI.exMode=t.value;
+  if(t.id==='exTekst') UI.exTekst=t.checked;
+  if(t.id==='exGroei') UI.exGroei=t.checked;
+  renderExport();
+});
+$('#export').addEventListener('click',e=>{
+  if(onFilter(e)) return;
+  const b=e.target.closest('[data-ex]');if(!b) return;
+  const slot=$('#exSlot');
+  if(b.dataset.ex==='table'){
+    const txt=[exportHeader(),...exportMatrix()].map(r=>r.map(cleanCell).join('\t')).join('\n');copyText(txt,slot);
+  }
+  if(b.dataset.ex==='csv'){
+    const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+    const csv='﻿'+[exportHeader(),...exportMatrix()].map(r=>r.map(q).join(';')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=`klashouding-${(S.cfg.klas||'klas').replace(/[^\w-]+/g,'_')}-${todayStr()}.csv`;
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+    slot.innerHTML='<p class="msg ok">CSV-bestand aangemaakt.</p>';
+  }
+  if(b.dataset.ex==='teksten'){copyText(exportRows().map(r=>r.k.name+'\n'+r.tekst).join('\n\n')+'\n',slot);}
+  if(b.dataset.ex==='groei'){copyText(exportRows().map(r=>r.k.name+'\n'+r.groei.text).join('\n\n')+'\n',slot);}
+});
+
+/* ================= D. Klas & criteria ================= */
+function renderKlas(){
+  const el=$('#klas');
+  el.innerHTML=`<div class="card"><h2>Klas</h2><label>Naam van de klas<input id="kNaam" value="${esc(S.cfg.klas)}"></label></div>
+  <div class="card"><h2>Leerlingen (${S.cfg.kids.length})</h2><div class="list">
+    ${S.cfg.kids.map(k=>`<div class="item" data-id="${esc(k.id)}"><input data-kidname value="${esc(k.name)}" aria-label="Naam leerling"><button class="danger" data-del="kid">Verwijder</button></div>`).join('')||'<p class="muted">Nog geen leerlingen.</p>'}
+  </div><h3>Leerlingen toevoegen (één per regel)</h3><textarea id="kAdd"></textarea><div class="row"><button class="primary" data-act="addKids">Toevoegen</button></div><div class="msg" id="kMsg"></div></div>
+  <div class="card"><h2>Criteria</h2><p class="muted small">Per lesmoment kies je er maximum ${MAX_CRITS}.</p><div class="list">
+    ${S.cfg.crits.map(c=>`<div class="item" data-id="${esc(c.id)}"><input data-critname value="${esc(c.name)}" aria-label="Naam criterium"><input class="short" data-critshort value="${esc(c.short)}" aria-label="Korte naam"><button class="danger" data-del="crit">Verwijder</button></div>`).join('')}
+  </div><h3>Nieuw criterium</h3><div class="row"><label style="flex:1">Naam<input id="cName"></label><label>Kort<input id="cShort" style="width:110px"></label><button class="primary" data-act="addCrit">Toevoegen</button></div><div class="msg" id="cMsg"></div></div>
+  <div class="card"><h2>Vakken</h2><label style="width:100%">Snelknoppen, gescheiden door komma's<input id="vakken" style="width:100%" value="${esc(S.cfg.vakken.join(', '))}"></label></div>
+  <div class="card"><h2>Back-up</h2>
+    <p>Je gegevens staan <b>enkel op dit toestel</b> (in deze browser). Neem af en toe een back-up: tik op "Kopieer back-up" en bewaar de tekst bv. in een notitie of mail aan jezelf. Op een ander toestel plak je die tekst hieronder en tik je op "Back-up terugzetten". Zo zet je alles over.</p>
+    <div class="row"><button class="primary" data-act="backup">Kopieer back-up</button></div><div class="copyslot" id="bSlot"></div>
+    <h3>Back-up terugzetten</h3><textarea id="restore" placeholder="Plak hier je back-up…"></textarea>
+    <div class="row"><button class="danger" data-act="restore">Back-up terugzetten (vervangt alles)</button></div><div class="msg" id="rMsg"></div>
+  </div>`;
+}
+$('#klas').addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='kNaam'){S.cfg.klas=t.value;$('#klasnaam').textContent=t.value;save();}
+  if('kidname' in t.dataset){const k=S.cfg.kids.find(x=>x.id===t.closest('.item').dataset.id);if(k&&t.value.trim()){k.name=t.value.trim();save();}}
+  if('critname' in t.dataset){const c=critById(t.closest('.item').dataset.id);if(c&&t.value.trim()){c.name=t.value.trim();save();}}
+  if('critshort' in t.dataset){const c=critById(t.closest('.item').dataset.id);if(c){c.short=t.value.trim();save();}}
+  if(t.id==='vakken'){S.cfg.vakken=t.value.split(',').map(s=>s.trim()).filter(Boolean);save();}
+});
+$('#klas').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b) return;
+  if(b.dataset.del==='kid'){const id=b.closest('.item').dataset.id;armed(b,()=>{S.cfg.kids=S.cfg.kids.filter(k=>k.id!==id);Object.values(S.M).forEach(m=>{['scores','notes','absent'].forEach(f=>{if(m[f]) delete m[f][id];});});if(UI.kid===id) UI.kid=null;save();renderKlas();});return;}
+  if(b.dataset.del==='crit'){const id=b.closest('.item').dataset.id;armed(b,()=>{S.cfg.crits=S.cfg.crits.filter(c=>c.id!==id);Object.values(S.M).forEach(m=>{m.crits=m.crits.filter(c=>c!==id);Object.values(m.scores||{}).forEach(s=>delete s[id]);});save();renderKlas();});return;}
+  const act=b.dataset.act;
+  if(act==='addKids'){const names=$('#kAdd').value.split('\n').map(s=>s.trim()).filter(Boolean);if(!names.length){$('#kMsg').className='msg err';$('#kMsg').textContent='Typ of plak eerst namen.';return;}names.forEach(n=>S.cfg.kids.push({id:uid('k'),name:n}));save();renderKlas();$('#kMsg').className='msg ok';$('#kMsg').textContent=names.length+' leerling(en) toegevoegd.';}
+  if(act==='addCrit'){const n=$('#cName').value.trim();if(!n){$('#cMsg').className='msg err';$('#cMsg').textContent='Geef een naam.';return;}S.cfg.crits.push({id:uid('c'),name:n,short:$('#cShort').value.trim()||n.slice(0,6)});save();renderKlas();$('#cMsg').className='msg ok';$('#cMsg').textContent='Criterium toegevoegd.';}
+  if(act==='backup'){copyText(JSON.stringify(S),$('#bSlot'));}
+  if(act==='restore'){
+    const msg=$('#rMsg');let d;
+    try{d=JSON.parse($('#restore').value);}catch(err){d=null;}
+    if(!valid(d)){msg.className='msg err';msg.textContent='Dit is geen geldige back-up. Plak de volledige tekst die je met "Kopieer back-up" kreeg.';return;}
+    armed(b,()=>{if(!Array.isArray(d.cfg.vakken)) d.cfg.vakken=[...DEF_VAKKEN];S=d;UI.cur=null;UI.form=null;UI.kid=null;save();renderKlas();const m=$('#rMsg');m.className='msg ok';m.textContent='Back-up teruggezet.';});
+  }
+});
+
+/* ================= Start ================= */
+load();render();
+try{if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});}catch(e){}
+try{
+  if('serviceWorker' in navigator&&location.protocol==='https:'&&window.self===window.top){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+}catch(e){}
+</script>
+</body>
+</html>
