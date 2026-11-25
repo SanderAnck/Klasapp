@@ -1,9 +1,13 @@
-// Verhoog VERSIE bij elke nieuwe versie van de app.
-const VERSIE = 'klashouding-v2';
+// Verhoog VERSIE bij elke nieuwe versie van de app (en APP_VERSIE in index.html en version.json).
+const VERSIE = 'klashouding-v3';
 const BESTANDEN = ['./', './index.html', './manifest.json', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSIE).then(c => c.addAll(BESTANDEN)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(VERSIE)
+      .then(c => c.addAll(BESTANDEN.map(u => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -14,19 +18,23 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Netwerk eerst, cache als offline.
+// Netwerk eerst (zonder browsercache, zodat updates meteen binnenkomen), cache als offline.
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  const eigen = url.origin === self.location.origin;
+  const netwerk = eigen ? fetch(url.href, { cache: 'no-store', credentials: 'same-origin' }) : fetch(req);
   e.respondWith(
-    fetch(e.request)
+    netwerk
       .then(res => {
-        if (res && (res.ok || res.type === 'opaque')) {
+        if (res && (res.ok || res.type === 'opaque') && !url.pathname.endsWith('version.json')) {
           const kopie = res.clone();
-          caches.open(VERSIE).then(c => c.put(e.request, kopie)).catch(() => {});
+          caches.open(VERSIE).then(c => c.put(req, kopie)).catch(() => {});
         }
         return res;
       })
-      .catch(() => caches.match(e.request, { ignoreSearch: true })
-        .then(r => r || (e.request.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+      .catch(() => caches.match(req, { ignoreSearch: true })
+        .then(r => r || (req.mode === 'navigate' ? caches.match('./index.html') : undefined)))
   );
 });
