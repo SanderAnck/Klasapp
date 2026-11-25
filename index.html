@@ -44,7 +44,8 @@ header{background:var(--head);color:var(--headink);padding:calc(env(safe-area-in
 .update button{min-height:36px;padding:4px 10px}
 .top{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
 .top h1{font-size:1.15rem;margin:0;font-weight:600}
-.top h1 span{color:var(--bord)}
+.top h1{display:flex;align-items:center;gap:8px}
+#klasSel{font-weight:700;color:var(--bord);background:var(--card);border-color:var(--bord);min-height:40px;padding:4px 8px;max-width:180px}
 #status{font-size:.75rem;opacity:.8;text-align:right}
 #status.bad{color:var(--err);opacity:1}
 nav{display:flex;gap:4px;overflow-x:auto;margin-top:6px;scrollbar-width:none}
@@ -104,6 +105,36 @@ tr.absent .opt{pointer-events:none}
 .fill{font-size:.72rem;padding:4px 6px;min-height:36px;margin-top:4px;white-space:nowrap}
 .note{min-width:170px;width:100%;font-size:16px}
 .progress{margin:10px 0;font-weight:500}
+/* per criterium */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:10px 0 4px}
+.seg button{border:0;border-radius:0;background:var(--card);color:var(--muted);min-width:120px}
+.seg button[aria-pressed="true"]{background:var(--bord);color:#fff;font-weight:600}
+.ctabs{display:flex;gap:6px;overflow-x:auto;padding:8px 0;position:sticky;top:var(--headh,96px);z-index:5;background:var(--paper);scrollbar-width:none;scroll-margin-top:var(--headh,96px)}
+.ctabs::-webkit-scrollbar{display:none}
+.ctab{white-space:nowrap;border-radius:999px;background:var(--soft);padding:8px 12px}
+.ctab .cnt{font-size:.75rem;color:var(--muted);margin-left:2px}
+.ctab.full .cnt{color:var(--ok);font-weight:700}
+.ctab[aria-selected="true"]{background:var(--bord);color:#fff;border-color:var(--bord)}
+.ctab[aria-selected="true"] .cnt{color:#fff}
+.chead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:4px}
+.chead h2{margin:0}
+.fill.big{font-size:.9rem;min-height:44px;padding:8px 12px;margin:0}
+.klist{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.krow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--line)}
+.krow:last-child{border-bottom:0}
+.kname{border:0;background:none;text-align:left;padding:4px 2px;min-height:48px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;min-width:0;border-radius:8px}
+.kname span{font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kname small{font-size:.72rem;color:var(--muted)}
+.notetag{color:var(--bord)!important}
+.krow .opts{gap:5px}
+.krow .opt{width:50px;min-width:50px;height:50px;font-size:1.15rem}
+.kmore{grid-column:1/-1;display:flex;gap:8px;align-items:center;padding:4px 0 6px}
+.kmore .note{flex:1;min-width:0}
+.kmore .absbtn{min-height:44px;padding:6px 12px;font-size:.85rem}
+.krow.absent .kname span{color:var(--muted);text-decoration:line-through}
+.krow.absent .opts{opacity:.3;pointer-events:none}
+.nextbtn{width:100%;margin-top:12px;min-height:52px;font-size:1.05rem}
+@media (max-width:380px){.krow .opt{width:48px;min-width:48px}}
 /* overzicht */
 .ov td.name button{background:none;border:0;padding:6px 2px;min-height:44px;text-align:left;color:var(--ink);font-weight:500;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px}
 .ov tr.sel td{background:light-dark(#fbf6d9,#2d2b1d)}
@@ -153,7 +184,7 @@ tr.absent .opt{pointer-events:none}
 <body>
 <header>
   <div class="top">
-    <h1>Klashouding <span id="klasnaam"></span></h1>
+    <h1>Klashouding <select id="klasSel" aria-label="Kies een klas"></select></h1>
     <div id="status" aria-live="polite">Opgeslagen op dit toestel</div>
   </div>
   <nav role="tablist" aria-label="Schermen">
@@ -238,26 +269,54 @@ function mean(a){return a.reduce((x,y)=>x+y,0)/a.length;}
 
 /* ================= Opslag ================= */
 function defaultCfg(){return {klas:'3B',kids:[],crits:DEF_CRITS.map(c=>({...c})),vakken:[...DEF_VAKKEN]};}
-let S={cfg:defaultCfg(),M:{}};
+/* DB = {v:2, actief, klassen:{<id>:{id,cfg,M}}}; S wijst altijd naar de actieve klas */
+function newKlas(cfg,M){const id=uid('kl');return {id,cfg,M:M||{}};}
+let DB=null,S=null;
+function initDB(k){DB={v:2,actief:k.id,klassen:{[k.id]:k}};S=k;}
+initDB(newKlas(defaultCfg()));
+function valid(d){return d&&d.cfg&&Array.isArray(d.cfg.kids)&&Array.isArray(d.cfg.crits)&&d.M&&typeof d.M==='object'&&!Array.isArray(d.M);}
+function validDB(d){return d&&d.v===2&&d.klassen&&typeof d.klassen==='object'&&Object.keys(d.klassen).length>0&&Object.values(d.klassen).every(valid);}
+/* oude back-up (één klas) of nieuwe (meerdere klassen) omzetten naar DB */
+function toDB(d){
+  if(validDB(d)){Object.values(d.klassen).forEach(k=>{if(!Array.isArray(k.cfg.vakken)) k.cfg.vakken=[...DEF_VAKKEN];});if(!d.klassen[d.actief]) d.actief=Object.keys(d.klassen)[0];return d;}
+  if(valid(d)){if(!Array.isArray(d.cfg.vakken)) d.cfg.vakken=[...DEF_VAKKEN];const k=newKlas(d.cfg,d.M);return {v:2,actief:k.id,klassen:{[k.id]:k}};}
+  return null;
+}
+function useDB(d){DB=d;S=DB.klassen[DB.actief];}
+function klassenSorted(){return Object.values(DB.klassen).sort((a,b)=>String(a.cfg.klas).localeCompare(String(b.cfg.klas),'nl',{numeric:true}));}
+function switchKlas(id){if(!DB.klassen[id]) return;DB.actief=id;S=DB.klassen[id];UI.cur=null;UI.form=null;UI.kid=null;UI.crit=null;save();render();}
 function load(){
   try{
     const raw=localStorage.getItem(KEY);
-    if(raw){const d=JSON.parse(raw);if(valid(d)) S=d;}
+    if(raw){const d=toDB(JSON.parse(raw));if(d) useDB(d);}
   }catch(e){setStatus('Laden mislukt: gegevens niet leesbaar',true);}
 }
-function valid(d){return d&&d.cfg&&Array.isArray(d.cfg.kids)&&Array.isArray(d.cfg.crits)&&d.M&&typeof d.M==='object'&&!Array.isArray(d.M);}
 function save(){
-  try{localStorage.setItem(KEY,JSON.stringify(S));setStatus('Opgeslagen op dit toestel');}
+  try{localStorage.setItem(KEY,JSON.stringify(DB));setStatus('Opgeslagen op dit toestel');}
   catch(e){setStatus('Opslaan mislukt!',true);}
 }
 function setStatus(t,bad){const el=$('#status');el.textContent=t;el.classList.toggle('bad',!!bad);}
 
 /* ================= UI-toestand ================= */
-const UI={tab:'beoordelen',cur:null,form:null,filter:{from:'',to:'',vak:''},kid:null,exMode:'woorden',exTekst:true,exGroei:true};
+const UI={tab:'beoordelen',cur:null,form:null,filter:{from:'',to:'',vak:''},kid:null,exMode:'woorden',exTekst:true,exGroei:true,crit:null,view:'crit'};
+try{UI.view=localStorage.getItem('klashouding_weergave')||(window.innerWidth<900?'crit':'grid');}catch(e){UI.view=window.innerWidth<900?'crit':'grid';}
 
 function critById(id){return S.cfg.crits.find(c=>c.id===id);}
 function momentsSorted(){return Object.values(S.M).sort((a,b)=>a.date===b.date?b.ts-a.ts:(a.date<b.date?1:-1));}
 function momentLabel(m){return fmtDate(m.date)+' · '+m.vak+(m.title?' · '+m.title:'');}
+
+/* ================= Klassen ================= */
+function renderKlasSel(){
+  const sel=$('#klasSel');
+  sel.innerHTML=klassenSorted().map(k=>`<option value="${esc(k.id)}"${k.id===DB.actief?' selected':''}>${esc(k.cfg.klas||'(naamloos)')}</option>`).join('')+'<option value="__new">+ Nieuwe klas</option>';
+  sel.value=DB.actief;
+}
+function addKlas(){
+  const cfg={klas:'Nieuwe klas',kids:[],crits:S.cfg.crits.map(c=>({...c})),vakken:[...S.cfg.vakken]};
+  const k=newKlas(cfg);DB.klassen[k.id]=k;switchKlas(k.id);showTab('beoordelen');
+  setTimeout(()=>{const i=$('#startKlas');if(i){i.focus();i.select();}},50);
+}
+$('#klasSel').addEventListener('change',e=>{const v=e.target.value;if(v==='__new') addKlas();else switchKlas(v);});
 
 /* ================= Tabs ================= */
 $('nav').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b) showTab(b.dataset.tab);});
@@ -268,8 +327,10 @@ function showTab(t){
   render();
   window.scrollTo(0,0);
 }
+function setHeadH(){document.documentElement.style.setProperty('--headh',$('header').offsetHeight+'px');}
+window.addEventListener('resize',setHeadH);
 function render(){
-  $('#klasnaam').textContent=S.cfg.klas||'';
+  renderKlasSel();setHeadH();
   ({beoordelen:renderBeoordelen,overzicht:renderOverzicht,export:renderExport,klas:renderKlas,instellingen:renderInst})[UI.tab]();
 }
 
@@ -284,8 +345,9 @@ function armed(btn,action){
 function renderBeoordelen(){
   const el=$('#beoordelen');
   if(!S.cfg.kids.length){
-    el.innerHTML=`<h2>Welkom!</h2>
+    el.innerHTML=`<h2>${Object.keys(DB.klassen).length>1?'Nieuwe klas':'Welkom!'}</h2>
     <div class="card">
+      <label style="margin-bottom:10px">Naam van de klas<input id="startKlas" value="${esc(S.cfg.klas)}"></label>
       <p>Plak de namen van je leerlingen, één per regel.</p>
       <textarea id="newKids" placeholder="Emma&#10;Noah&#10;Lina"></textarea>
       <div class="row" style="margin-top:8px">
@@ -309,7 +371,9 @@ function renderBeoordelen(){
   if(UI.form){
     h+=renderForm();
   }else{
-    h+=renderGrid(S.M[UI.cur]);
+    const m=S.M[UI.cur];
+    h+=`<div class="seg" role="group" aria-label="Weergave"><button data-act="view" data-v="crit" aria-pressed="${UI.view==='crit'}">Per criterium</button><button data-act="view" data-v="grid" aria-pressed="${UI.view==='grid'}">Rooster</button></div>`;
+    h+=UI.view==='crit'?renderCritView(m):renderGrid(m);
   }
   el.innerHTML=h;
   if(UI.form) $('#momSel').value='__new';
@@ -353,6 +417,36 @@ function renderGrid(m){
   h+=`</tbody></table></div><div class="progress" id="progress">${progressText(m)}</div>`;
   return h;
 }
+function renderCritView(m){
+  const crits=m.crits.map(critById).filter(Boolean);
+  if(!crits.length) return '<p>Dit lesmoment heeft geen criteria. Tik op Wijzig.</p>';
+  if(!UI.crit||!m.crits.includes(UI.crit)||!critById(UI.crit)){
+    const open=crits.find(c=>{const d=critDone(m,c.id);return d.done<d.tot;});UI.crit=(open||crits[0]).id;
+  }
+  const c=critById(UI.crit);
+  let h=`<div class="ctabs" id="critTabs" role="tablist">${crits.map(x=>{const d=critDone(m,x.id);const full=d.done===d.tot;return `<button role="tab" class="ctab${full?' full':''}" data-act="ctab" data-c="${esc(x.id)}" aria-selected="${x.id===c.id}">${esc(x.short||x.name)} <span class="cnt">${full?'✓':d.done+'/'+d.tot}</span></button>`;}).join('')}</div>`;
+  h+=`<div class="chead"><h2>${esc(c.name)}</h2><button class="fill big" data-act="fill" data-c="${esc(c.id)}">Alle lege → +</button></div>`;
+  h+=`<p class="muted small">Tik de score aan. Nog eens tikken maakt leeg. Tik op een naam voor afwezig of een notitie.</p><div class="klist">`;
+  for(const k of S.cfg.kids){
+    const ab=!!(m.absent&&m.absent[k.id]);const v=(m.scores&&m.scores[k.id]&&m.scores[k.id][c.id])||0;const note=(m.notes&&m.notes[k.id])||'';
+    h+=`<div class="krow${ab?' absent':''}" data-kid="${esc(k.id)}">
+      <button class="kname" data-act="more" aria-expanded="false"><span>${esc(k.name)}</span><small class="abstag${ab?'':' hidden'}">afwezig</small>${note?'<small class="notetag">✎</small>':''}</button>
+      ${optsHtml(k.name,c,v)}
+      <div class="kmore hidden"><button class="absbtn" data-act="abs" data-lbl="1" aria-pressed="${ab}">${ab?'Afwezig ✓':'Afwezig'}</button><input class="note" data-act="note" value="${esc(note)}" placeholder="notitie…" aria-label="Notitie ${esc(k.name)}"></div>
+    </div>`;
+  }
+  h+=`</div><div id="nextSlot">${nextHtml(m)}</div><div class="progress" id="progress">${progressText(m)}</div>`;
+  return h;
+}
+function nextHtml(m){
+  if(UI.view!=='crit') return '';
+  const crits=m.crits.filter(id=>critById(id));const i=crits.indexOf(UI.crit);
+  const d=critDone(m,UI.crit);if(d.done<d.tot) return '';
+  const open=crits.slice(i+1).concat(crits.slice(0,i)).find(id=>{const x=critDone(m,id);return x.done<x.tot;});
+  if(!open) return '<p class="msg ok"><b>Klaar!</b> Alle criteria zijn ingevuld voor dit lesmoment.</p>';
+  const c=critById(open);
+  return `<button class="primary nextbtn" data-act="next" data-c="${esc(open)}">Volgende: ${esc(c.name)} →</button>`;
+}
 function progressText(m){
   let full=0,abs=0;const crits=m.crits.filter(id=>critById(id));
   for(const k of S.cfg.kids){
@@ -380,11 +474,13 @@ $('#beoordelen').addEventListener('change',e=>{
 $('#beoordelen').addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.act==='note'){
-    const m=S.M[UI.cur];const kid=t.closest('tr').dataset.kid;
+    const m=S.M[UI.cur];const kid=t.closest('[data-kid]').dataset.kid;
     m.notes=m.notes||{};
     if(t.value.trim()) m.notes[kid]=t.value; else delete m.notes[kid];
     save();
   }
+  if(t.id==='startKlas'){S.cfg.klas=t.value;renderKlasSel();save();}
+  if(t.dataset.act==='note'){const row=t.closest('.krow');if(row){const nb=$('.kname',row);let tg=$('.notetag',nb);if(t.value.trim()&&!tg){nb.insertAdjacentHTML('beforeend','<small class="notetag">✎</small>');}else if(!t.value.trim()&&tg) tg.remove();}}
   if(UI.form){
     if(t.id==='fTitle') UI.form.title=t.value;
     if(t.id==='fDate') UI.form.date=t.value;
@@ -432,30 +528,45 @@ $('#beoordelen').addEventListener('click',e=>{
   if(act==='delMoment'){armed(b,()=>{delete S.M[UI.cur];UI.cur=null;save();renderBeoordelen();});return;}
   const m=S.M[UI.cur];if(!m) return;
   if(act==='cell'){
-    const tr=b.closest('tr');const kid=tr.dataset.kid;const c=b.dataset.c;m.scores=m.scores||{};
+    const row=b.closest('[data-kid]');const kid=row.dataset.kid;const c=b.dataset.c;m.scores=m.scores||{};
     m.scores[kid]=m.scores[kid]||{};
     const pick=Number(b.dataset.v);
     const nv=m.scores[kid][c]===pick?0:pick; // nogmaals tikken = leegmaken
     if(nv) m.scores[kid][c]=nv; else delete m.scores[kid][c];
     setCell(b.closest('.opts'),nv);
-    $('#progress').textContent=progressText(m);save();return;
+    afterChange(m);save();return;
   }
   if(act==='fill'){
     const c=b.dataset.c;
-    $$('#beoordelen tbody tr').forEach(tr=>{
-      const kid=tr.dataset.kid;if(m.absent&&m.absent[kid]) return;m.scores=m.scores||{};
+    $$('#beoordelen [data-kid]').forEach(row=>{
+      const kid=row.dataset.kid;if(m.absent&&m.absent[kid]) return;m.scores=m.scores||{};
       m.scores[kid]=m.scores[kid]||{};
-      if(!m.scores[kid][c]){m.scores[kid][c]=3;setCell($(`.opts[data-c="${CSS.escape(c)}"]`,tr),3);}
+      if(!m.scores[kid][c]){m.scores[kid][c]=3;const g=$(`.opts[data-c="${CSS.escape(c)}"]`,row);if(g) setCell(g,3);}
     });
-    $('#progress').textContent=progressText(m);save();return;
+    afterChange(m);save();return;
   }
   if(act==='abs'){
-    const tr=b.closest('tr');const kid=tr.dataset.kid;m.absent=m.absent||{};
+    const row=b.closest('[data-kid]');const kid=row.dataset.kid;m.absent=m.absent||{};
     if(m.absent[kid]) delete m.absent[kid]; else m.absent[kid]=true;
-    const ab=!!m.absent[kid];tr.classList.toggle('absent',ab);b.setAttribute('aria-pressed',ab);
-    $('#progress').textContent=progressText(m);save();return;
+    const ab=!!m.absent[kid];row.classList.toggle('absent',ab);b.setAttribute('aria-pressed',ab);
+    if(b.dataset.lbl) b.textContent=ab?'Afwezig ✓':'Afwezig';
+    const tag=$('.abstag',row);if(tag) tag.classList.toggle('hidden',!ab);
+    afterChange(m);save();return;
   }
+  if(act==='more'){const row=b.closest('[data-kid]');const x=$('.kmore',row);x.classList.toggle('hidden');b.setAttribute('aria-expanded',!x.classList.contains('hidden'));return;}
+  if(act==='view'){UI.view=b.dataset.v;try{localStorage.setItem('klashouding_weergave',UI.view);}catch(e){}renderBeoordelen();return;}
+  if(act==='ctab'||act==='next'){UI.crit=b.dataset.c;renderBeoordelen();const t=$('#critTabs');if(t) t.scrollIntoView({block:'start',behavior:'smooth'});return;}
 });
+function critDone(m,cid){
+  let done=0,tot=0;
+  for(const k of S.cfg.kids){if(m.absent&&m.absent[k.id]) continue;tot++;if(m.scores&&m.scores[k.id]&&m.scores[k.id][cid]) done++;}
+  return {done,tot};
+}
+function afterChange(m){
+  const p=$('#progress');if(p) p.textContent=progressText(m);
+  $$('#critTabs [data-act="ctab"]').forEach(b=>{const d=critDone(m,b.dataset.c);const cnt=$('.cnt',b);if(cnt) cnt.textContent=d.done===d.tot?'✓':`${d.done}/${d.tot}`;b.classList.toggle('full',d.done===d.tot);});
+  const nx=$('#nextSlot');if(nx) nx.innerHTML=nextHtml(m);
+}
 
 /* Voorbeeldklas */
 function loadDemo(){
@@ -485,7 +596,7 @@ function loadDemo(){
     if(i===4) notes.k4='zat vooraan, ging beter';
     M[id]={id,ts:Date.now()-(10-i)*1000,date:todayStr(d),vak,title,crits,scores,notes,absent};
   });
-  S={cfg:{klas:'3B',kids,crits:DEF_CRITS.map(c=>({...c})),vakken:[...DEF_VAKKEN]},M};
+  S.cfg={klas:S.cfg.kids.length||Object.keys(S.M).length?'Voorbeeld':(S.cfg.klas||'3B'),kids,crits:DEF_CRITS.map(c=>({...c})),vakken:[...DEF_VAKKEN]};S.M=M;
   UI.cur=null;UI.form=null;UI.kid=null;save();render();
 }
 
@@ -733,7 +844,11 @@ $('#export').addEventListener('click',e=>{
 /* ================= D. Klas & criteria ================= */
 function renderKlas(){
   const el=$('#klas');
-  el.innerHTML=`<div class="card"><h2>Klas</h2><label>Naam van de klas<input id="kNaam" value="${esc(S.cfg.klas)}"></label></div>
+  const n=Object.keys(DB.klassen).length;
+  el.innerHTML=`<div class="card"><h2>Klassen</h2>
+    <p class="muted small">Je hebt ${n} ${n===1?'klas':'klassen'}. Wissel bovenaan van klas. Elke klas heeft haar eigen leerlingen, criteria, vakken en lesmomenten.</p>
+    <label>Naam van deze klas<input id="kNaam" value="${esc(S.cfg.klas)}"></label>
+    <div class="row" style="margin-top:8px"><button class="primary" data-act="newKlas">+ Nieuwe klas</button>${n>1?`<button class="danger" data-act="delKlas">Verwijder klas ${esc(S.cfg.klas)}</button>`:''}</div></div>
   <div class="card"><h2>Leerlingen (${S.cfg.kids.length})</h2><div class="list">
     ${S.cfg.kids.map(k=>`<div class="item" data-id="${esc(k.id)}"><input data-kidname value="${esc(k.name)}" aria-label="Naam leerling"><button class="danger" data-del="kid">Verwijder</button></div>`).join('')||'<p class="muted">Nog geen leerlingen.</p>'}
   </div><h3>Leerlingen toevoegen (één per regel)</h3><textarea id="kAdd"></textarea><div class="row"><button class="primary" data-act="addKids">Toevoegen</button></div><div class="msg" id="kMsg"></div></div>
@@ -742,7 +857,7 @@ function renderKlas(){
   </div><h3>Nieuw criterium</h3><div class="row"><label style="flex:1">Naam<input id="cName"></label><label>Kort<input id="cShort" style="width:110px"></label><button class="primary" data-act="addCrit">Toevoegen</button></div><div class="msg" id="cMsg"></div></div>
   <div class="card"><h2>Vakken</h2><label style="width:100%">Snelknoppen, gescheiden door komma's<input id="vakken" style="width:100%" value="${esc(S.cfg.vakken.join(', '))}"></label></div>
   <div class="card"><h2>Back-up</h2>
-    <p>Je gegevens staan <b>enkel op dit toestel</b> (in deze browser). Neem af en toe een back-up: tik op "Kopieer back-up" en bewaar de tekst bv. in een notitie of mail aan jezelf. Op een ander toestel plak je die tekst hieronder en tik je op "Back-up terugzetten". Zo zet je alles over.</p>
+    <p>Je gegevens (alle klassen) staan <b>enkel op dit toestel</b> (in deze browser). Neem af en toe een back-up: tik op "Kopieer back-up" en bewaar de tekst bv. in een notitie of mail aan jezelf. Op een ander toestel plak je die tekst hieronder en tik je op "Back-up terugzetten". Zo zet je alles over.</p>
     <div class="row"><button class="primary" data-act="backup">Kopieer back-up</button></div><div class="copyslot" id="bSlot"></div>
     <h3>Back-up terugzetten</h3><textarea id="restore" placeholder="Plak hier je back-up…"></textarea>
     <div class="row"><button class="danger" data-act="restore">Back-up terugzetten (vervangt alles)</button></div><div class="msg" id="rMsg"></div>
@@ -750,7 +865,7 @@ function renderKlas(){
 }
 $('#klas').addEventListener('input',e=>{
   const t=e.target;
-  if(t.id==='kNaam'){S.cfg.klas=t.value;$('#klasnaam').textContent=t.value;save();}
+  if(t.id==='kNaam'){S.cfg.klas=t.value;renderKlasSel();save();}
   if('kidname' in t.dataset){const k=S.cfg.kids.find(x=>x.id===t.closest('.item').dataset.id);if(k&&t.value.trim()){k.name=t.value.trim();save();}}
   if('critname' in t.dataset){const c=critById(t.closest('.item').dataset.id);if(c&&t.value.trim()){c.name=t.value.trim();save();}}
   if('critshort' in t.dataset){const c=critById(t.closest('.item').dataset.id);if(c){c.short=t.value.trim();save();}}
@@ -763,18 +878,22 @@ $('#klas').addEventListener('click',e=>{
   const act=b.dataset.act;
   if(act==='addKids'){const names=$('#kAdd').value.split('\n').map(s=>s.trim()).filter(Boolean);if(!names.length){$('#kMsg').className='msg err';$('#kMsg').textContent='Typ of plak eerst namen.';return;}names.forEach(n=>S.cfg.kids.push({id:uid('k'),name:n}));save();renderKlas();$('#kMsg').className='msg ok';$('#kMsg').textContent=names.length+' leerling(en) toegevoegd.';}
   if(act==='addCrit'){const n=$('#cName').value.trim();if(!n){$('#cMsg').className='msg err';$('#cMsg').textContent='Geef een naam.';return;}S.cfg.crits.push({id:uid('c'),name:n,short:$('#cShort').value.trim()||n.slice(0,6)});save();renderKlas();$('#cMsg').className='msg ok';$('#cMsg').textContent='Criterium toegevoegd.';}
-  if(act==='backup'){copyText(JSON.stringify(S),$('#bSlot'));}
+  if(act==='backup'){copyText(JSON.stringify(DB),$('#bSlot'));}
+  if(act==='newKlas'){addKlas();return;}
+  if(act==='delKlas'){armed(b,()=>{delete DB.klassen[DB.actief];const first=klassenSorted()[0];switchKlas(first.id);});return;}
   if(act==='restore'){
     const msg=$('#rMsg');let d;
     try{d=JSON.parse($('#restore').value);}catch(err){d=null;}
-    if(!valid(d)){msg.className='msg err';msg.textContent='Dit is geen geldige back-up. Plak de volledige tekst die je met "Kopieer back-up" kreeg.';return;}
-    armed(b,()=>{if(!Array.isArray(d.cfg.vakken)) d.cfg.vakken=[...DEF_VAKKEN];S=d;UI.cur=null;UI.form=null;UI.kid=null;save();renderKlas();const m=$('#rMsg');m.className='msg ok';m.textContent='Back-up teruggezet.';});
+    d=d&&toDB(d);
+    if(!d){msg.className='msg err';msg.textContent='Dit is geen geldige back-up. Plak de volledige tekst die je met "Kopieer back-up" kreeg.';return;}
+    armed(b,()=>{useDB(d);UI.cur=null;UI.form=null;UI.kid=null;save();renderKlas();const m=$('#rMsg');m.className='msg ok';m.textContent='Back-up teruggezet.';});
   }
 });
 
 /* ================= Instellingen & versies ================= */
-const APP_VERSIE='1.2';
+const APP_VERSIE='1.3';
 const VERSIES=[
+  {v:'1.3',d:'2026-11-25',w:['Meerdere klassen: kies bovenaan je klas of maak een nieuwe. Elke klas heeft eigen leerlingen, criteria en lesmomenten.','Nieuwe weergave "Per criterium": één criterium tegelijk met grote knoppen per leerling, past op je iPhone zonder opzij te scrollen.','Per criterium zie je hoeveel leerlingen al ingevuld zijn en ga je met één tik naar het volgende.','Tik op een naam voor afwezig of een notitie. Het rooster blijft beschikbaar.','De back-up bevat nu al je klassen.']},
   {v:'1.2',d:'2026-11-25',w:['Nieuwe tab Instellingen: versies volgen en zoeken naar een update.','Lichter thema (standaard licht, ook als je toestel op donker staat).','Scorekleuren: ++ donkergroen, + lichtgroen, − oranje, −− rood.','Updates komen meteen binnen (geen oude versie uit de cache meer).']},
   {v:'1.1',d:'2026-11-25',w:['Scores ingeven met vier knoppen: ++, +, −, −−.']},
   {v:'1.0',d:'2026-11-25',w:['Eerste versie: beoordelen, overzicht per kind, groeifeedback, export en back-up. Maximum 10 criteria per lesmoment.']}
