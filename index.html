@@ -59,6 +59,7 @@ p{margin:.4em 0}
 .muted{color:var(--muted)}
 .small{font-size:.85rem}
 :focus-visible{outline:3px solid var(--krijt);outline-offset:2px}
+a.btn{display:inline-flex;align-items:center;text-decoration:none}
 button,.btn{font:inherit;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
 button.primary{background:var(--bord);color:#fff;border-color:var(--bord)}
 button.danger{color:var(--err);border-color:currentColor}
@@ -195,6 +196,7 @@ tr.absent .opt{pointer-events:none}
     <button role="tab" data-tab="instellingen" aria-selected="false">Instellingen</button>
   </nav>
   <div id="updBanner" class="update hidden"></div>
+  <div id="syncBanner" class="update hidden"></div>
 </header>
 <main>
   <section id="beoordelen"></section>
@@ -292,8 +294,137 @@ function load(){
   }catch(e){setStatus('Laden mislukt: gegevens niet leesbaar',true);}
 }
 function save(){
-  try{localStorage.setItem(KEY,JSON.stringify(DB));setStatus('Opgeslagen op dit toestel');}
-  catch(e){setStatus('Opslaan mislukt!',true);}
+  DB.bijgewerkt=Date.now();
+  if(saveLocal()) syncPlan();
+}
+function saveLocal(){
+  try{localStorage.setItem(KEY,JSON.stringify(DB));setStatus(syncAan()?'Opgeslagen, Google Sheet volgt…':'Opgeslagen op dit toestel');return true;}
+  catch(e){setStatus('Opslaan mislukt!',true);return false;}
+}
+
+/* ================= Google Sheet (centrale opslag) ================= */
+/* Alle gegevens gaan naar een Google Apps Script-webapp die ze in een Google Sheet
+   en als JSON-bestand in Google Drive bewaart. Zie google-sheet/HANDLEIDING.md. */
+const SYNC_KEY='klashouding_sync';
+let SY=(()=>{try{return JSON.parse(localStorage.getItem(SYNC_KEY))||{};}catch(e){return {};}})();
+if(!SY.toestel){SY.toestel=uid('t');}
+if(!SY.naam){const ua=navigator.userAgent;SY.naam=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Mac/.test(ua)?'Mac':/Android/.test(ua)?'Android':/Windows/.test(ua)?'Windows-pc':'Toestel';}
+const SYNC={timer:null,busy:false,again:false,state:'',msg:'',remote:null};
+function syncBewaar(){try{localStorage.setItem(SYNC_KEY,JSON.stringify(SY));}catch(e){}}
+syncBewaar();
+function syncAan(){return !!(SY.url&&SY.code);}
+function fmtTijd(ts){if(!ts) return 'nog nooit';const d=new Date(ts);return fmtDate(todayStr(d))+' om '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+async function syncCall(body){
+  const r=await fetch(SY.url,{method:'POST',body:JSON.stringify({...body,code:SY.code,toestel:SY.toestel,toestelNaam:SY.naam}),redirect:'follow'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  let d;try{d=await r.json();}catch(e){throw new Error('geen antwoord van het script');}
+  return d;
+}
+function syncPlan(){
+  if(!syncAan()) return;
+  SY.wacht=true;syncBewaar();
+  clearTimeout(SYNC.timer);SYNC.timer=setTimeout(()=>syncPush(false),3000);
+}
+function syncToon(state,msg){
+  SYNC.state=state;SYNC.msg=msg||'';
+  if(state==='ok') setStatus('Opgeslagen in Google Sheet ✓');
+  else if(state==='fout') setStatus('Opgeslagen op dit toestel (Google Sheet niet bereikt)',false);
+  if(UI.tab==='instellingen') renderInst();
+  syncBanner();
+}
+async function syncPush(forceer){
+  if(!syncAan()) return;
+  clearTimeout(SYNC.timer);
+  if(SYNC.busy){SYNC.again=true;return;}
+  SYNC.busy=true;
+  try{
+    const d=await syncCall({actie:'opslaan',forceer:!!forceer,db:DB,tabs:sheetTabs()});
+    if(d.ok){SY.wacht=false;SY.laatst=Date.now();SY.sheet=d.sheet||SY.sheet;syncBewaar();SYNC.remote=null;syncToon('ok');}
+    else if(d.fout==='conflict'){SYNC.remote=d;syncToon('conflict');}
+    else if(d.fout==='koppelcode') syncToon('fout','De koppelcode klopt niet. Kijk ze na in je Google Sheet (menu Klasapp → Koppelcode tonen).');
+    else syncToon('fout','Het script gaf een fout: '+(d.fout||'onbekend'));
+  }catch(e){syncToon('fout',navigator.onLine===false?'Geen internet. Het versturen gebeurt vanzelf zodra je weer online bent.':'Google Sheet niet bereikt. Kijk de webapp-URL na, of probeer later opnieuw.');}
+  finally{SYNC.busy=false;if(SYNC.again){SYNC.again=false;syncPush(false);}}
+}
+async function syncPull(){
+  try{
+    const d=await syncCall({actie:'ophalen'});
+    if(!d.ok){syncToon('fout',d.fout==='koppelcode'?'De koppelcode klopt niet.':'Ophalen mislukt: '+d.fout);return;}
+    if(d.leeg){syncToon('fout','Er staan nog geen gegevens in je Google Sheet. Tik op "Nu versturen".');return;}
+    const nd=toDB(d.db);
+    if(!nd){syncToon('fout','De gegevens in Google Drive zijn niet leesbaar.');return;}
+    useDB(nd);UI.cur=null;UI.form=null;UI.kid=null;UI.crit=null;
+    saveLocal();SY.wacht=false;SY.laatst=Date.now();syncBewaar();SYNC.remote=null;
+    render();syncToon('ok','Gegevens opgehaald uit Google Sheet.');
+  }catch(e){syncToon('fout','Ophalen lukte niet. Ben je met het internet verbonden?');}
+}
+/* Bij het opstarten: nieuwere gegevens in de sheet? Dan voorstellen om op te halen. Anders wachtende wijzigingen versturen. */
+async function syncStart(){
+  if(!syncAan()) return;
+  try{
+    const d=await syncCall({actie:'info'});
+    if(!d.ok){syncToon('fout',d.fout==='koppelcode'?'De koppelcode klopt niet.':'');return;}
+    SY.sheet=d.sheet||SY.sheet;syncBewaar();
+    if(d.bijgewerkt>(DB.bijgewerkt||0)&&d.toestel!==SY.toestel){SYNC.remote=d;syncToon('conflict');return;}
+    if(SY.wacht||!d.bijgewerkt||(DB.bijgewerkt||0)>d.bijgewerkt) syncPush(false); else syncToon('ok');
+  }catch(e){syncToon('fout','Google Sheet niet bereikt.');}
+}
+function syncBanner(){
+  const bn=$('#syncBanner');if(!bn) return;
+  if(SYNC.state==='conflict'&&SYNC.remote){
+    bn.innerHTML=`Je Google Sheet heeft nieuwere gegevens (${esc(fmtTijd(SYNC.remote.bijgewerkt))}). <button data-sync="pull">Ophalen</button> <button data-sync="force">Dit toestel doorzetten</button>`;
+    bn.classList.remove('hidden');
+  } else bn.classList.add('hidden');
+  setHeadH();
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-sync]');if(!b) return;
+  if(b.dataset.sync==='pull') armed(b,()=>syncPull());
+  if(b.dataset.sync==='force') armed(b,()=>syncPush(true));
+});
+window.addEventListener('online',()=>{if(syncAan()&&SY.wacht) syncPush(false);});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&syncAan()&&SY.wacht) syncPush(false);});
+
+/* Leesbare tabbladen voor de sheet (één rij per regel, eerste rij = kolomnamen) */
+function sheetTabs(){
+  const r1=n=>Math.round(n*10)/10;
+  const T={
+    Klassen:[['Klas','Leerlingen','Criteria','Lesmomenten','Klas-id']],
+    Leerlingen:[['Klas','Leerling','Leerling-id']],
+    Criteria:[['Klas','Criterium','Kort','Criterium-id']],
+    Lesmomenten:[['Klas','Datum','Vak','Omschrijving','Criteria','Leerlingen beoordeeld','Afwezig','Lesmoment-id']],
+    Scores:[['Klas','Datum','Vak','Omschrijving','Leerling','Criterium','Score (1-4)','Symbool','Woord','Lesmoment-id','Leerling-id','Criterium-id']],
+    Notities:[['Klas','Datum','Vak','Omschrijving','Leerling','Afwezig','Notitie']],
+    Overzicht:[['Klas','Leerling','Criterium','Gemiddelde (1-4)','Symbool','Woord','Aantal scores','Trend']],
+    Rapport:[['Klas','Leerling','Lessen beoordeeld','Rapporttekst','Groeifeedback']]
+  };
+  const bewaar=S;
+  try{
+    for(const k of klassenSorted()){
+      S=k;const kl=k.cfg.klas||'(naamloos)';
+      const kidN={},critN={};k.cfg.kids.forEach(x=>kidN[x.id]=x.name);k.cfg.crits.forEach(c=>critN[c.id]=c.name);
+      const ms=Object.values(k.M).sort((a,b)=>a.date===b.date?a.ts-b.ts:(a.date<b.date?-1:1));
+      T.Klassen.push([kl,k.cfg.kids.length,k.cfg.crits.length,ms.length,k.id]);
+      k.cfg.kids.forEach(x=>T.Leerlingen.push([kl,x.name,x.id]));
+      k.cfg.crits.forEach(c=>T.Criteria.push([kl,c.name,c.short||'',c.id]));
+      for(const m of ms){
+        const sc=m.scores||{},ab=m.absent||{},nt=m.notes||{};
+        T.Lesmomenten.push([kl,m.date,m.vak,m.title||'',m.crits.map(c=>critN[c]||c).join(', '),Object.keys(sc).filter(id=>kidN[id]&&Object.keys(sc[id]).length).length,Object.keys(ab).filter(id=>ab[id]&&kidN[id]).map(id=>kidN[id]).join(', '),m.id]);
+        for(const kid of k.cfg.kids){
+          const s=sc[kid.id]||{};
+          for(const cid of m.crits){const v=s[cid];if(v) T.Scores.push([kl,m.date,m.vak,m.title||'',kid.name,critN[cid]||cid,v,SYM[v],WORD[v],m.id,kid.id,cid]);}
+          if(ab[kid.id]||nt[kid.id]) T.Notities.push([kl,m.date,m.vak,m.title||'',kid.name,ab[kid.id]?'ja':'',nt[kid.id]||'']);
+        }
+      }
+      for(const kid of k.cfg.kids){
+        const st=kidStats(kid,ms);
+        for(const c of k.cfg.crits){const p=st.per[c.id];if(p) T.Overzicht.push([kl,kid.name,c.name,r1(p.avg),SYM[p.lvl],WORD[p.lvl],p.n,p.trend>0?'stijgend':p.trend<0?'dalend':'']);}
+        const g=groei(kid,st);
+        T.Rapport.push([kl,kid.name,st.lessons,rapportTekst(kid,st),g.empty?'':g.text]);
+      }
+    }
+  } finally {S=bewaar;}
+  return T;
 }
 function setStatus(t,bad){const el=$('#status');el.textContent=t;el.classList.toggle('bad',!!bad);}
 
@@ -891,8 +1022,9 @@ $('#klas').addEventListener('click',e=>{
 });
 
 /* ================= Instellingen & versies ================= */
-const APP_VERSIE='1.4';
+const APP_VERSIE='1.5';
 const VERSIES=[
+  {v:'1.5',d:'2026-11-27',w:['Koppeling met Google Sheet: al je gegevens gaan automatisch naar een Google Sheet en Google Drive (Instellingen → Google Sheet).','In de sheet: tabbladen met alle scores, notities, een overzicht per kind en de rapportteksten.','Elke dag een back-up in Google Drive. Op een nieuw toestel haal je alles op met één knop.']},
   {v:'1.4',d:'2026-11-25',w:['Knop in Instellingen om alle gegevens te verwijderen (met bevestiging).']},
   {v:'1.3',d:'2026-11-25',w:['Meerdere klassen: kies bovenaan je klas of maak een nieuwe. Elke klas heeft eigen leerlingen, criteria en lesmomenten.','Nieuwe weergave "Per criterium": één criterium tegelijk met grote knoppen per leerling, past op je iPhone zonder opzij te scrollen.','Per criterium zie je hoeveel leerlingen al ingevuld zijn en ga je met één tik naar het volgende.','Tik op een naam voor afwezig of een notitie. Het rooster blijft beschikbaar.','De back-up bevat nu al je klassen.']},
   {v:'1.2',d:'2026-11-25',w:['Nieuwe tab Instellingen: versies volgen en zoeken naar een update.','Lichter thema (standaard licht, ook als je toestel op donker staat).','Scorekleuren: ++ donkergroen, + lichtgroen, − oranje, −− rood.','Updates komen meteen binnen (geen oude versie uit de cache meer).']},
@@ -923,6 +1055,42 @@ async function doUpdate(){
   location.replace(location.pathname+'?v='+Date.now());
 }
 document.addEventListener('click',e=>{if(e.target.closest('[data-upd]')) doUpdate();});
+function syncKaart(){
+  if(!syncAan()) return `<div class="card"><h2>Google Sheet</h2>
+    <p>Bewaar al je gegevens (alle klassen) automatisch in een <b>Google Sheet</b> en in <b>Google Drive</b>. Zo heb je één centrale plek, een back-up, en kan je op meerdere toestellen werken.</p>
+    <p class="muted small">Eerst maak je de sheet en het koppelscript klaar (zie de handleiding in de repository: google-sheet/HANDLEIDING.md). Daarna plak je hier de webapp-URL en de koppelcode.</p>
+    <label style="width:100%">Webapp-URL<input id="syUrl" style="width:100%" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(SY.url||'')}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <div class="row" style="margin-top:8px"><label style="flex:1">Koppelcode<input id="syCode" value="${esc(SY.code||'')}" autocomplete="off" autocapitalize="off" spellcheck="false"></label><label>Naam van dit toestel<input id="syNaam" value="${esc(SY.naam||'')}"></label></div>
+    <div class="row"><button class="primary" data-act="syKoppel">Koppelen</button></div><div class="msg${SYNC.state==='fout'?' err':''}" id="syMsg">${esc(SYNC.msg)}</div></div>`;
+  let st='';
+  if(SYNC.state==='ok') st=`<p class="msg ok">${esc(SYNC.msg||'Alles staat in je Google Sheet.')}</p>`;
+  if(SYNC.state==='fout') st=`<p class="msg err">${esc(SYNC.msg||'Google Sheet niet bereikt.')}</p>`;
+  if(SYNC.state==='conflict') st=`<p class="msg err">Je Google Sheet heeft nieuwere gegevens (${esc(fmtTijd(SYNC.remote&&SYNC.remote.bijgewerkt))}), waarschijnlijk van een ander toestel. Kies bovenaan: ophalen of dit toestel doorzetten.</p>`;
+  return `<div class="card"><h2>Google Sheet</h2>
+    <p>Gekoppeld als <b>${esc(SY.naam)}</b>. Elke wijziging gaat na enkele seconden automatisch naar je Google Sheet en Google Drive.</p>
+    <p class="muted small">Laatst verstuurd: ${esc(fmtTijd(SY.laatst))}${SY.wacht?' · er wacht nog een wijziging':''}</p>${st}
+    <div class="row"><button class="primary" data-act="syPush">Nu versturen</button>${SY.sheet?`<a class="btn" href="${esc(SY.sheet)}" target="_blank" rel="noopener">Open Google Sheet</a>`:''}</div>
+    <h3>Gegevens ophalen</h3><p class="muted small">Gebruik dit op een nieuw toestel: alle gegevens op dit toestel worden vervangen door die uit je Google Sheet.</p>
+    <div class="row"><button class="danger" data-act="syPull">Ophalen uit Google Sheet (vervangt dit toestel)</button></div>
+    <h3>Ontkoppelen</h3><div class="row"><button data-act="syOff">Ontkoppel dit toestel</button></div></div>`;
+}
+async function syncKoppel(){
+  const url=$('#syUrl').value.trim(),code=$('#syCode').value.trim(),naam=$('#syNaam').value.trim();
+  const msg=$('#syMsg');
+  if(!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(url)){msg.className='msg err';msg.textContent='Plak de volledige webapp-URL (begint met https://script.google.com/macros/s/…).';return;}
+  if(!code){msg.className='msg err';msg.textContent='Plak de koppelcode uit je Google Sheet.';return;}
+  SY.url=url;SY.code=code;if(naam) SY.naam=naam;
+  msg.className='msg';msg.textContent='Bezig met koppelen…';
+  let d;
+  try{d=await syncCall({actie:'info'});}catch(e){d=null;}
+  if(!d||!d.ok){
+    const fout=d&&d.fout==='koppelcode'?'De koppelcode klopt niet.':'De webapp is niet bereikbaar. Staat "Wie heeft toegang" op "Iedereen"? Gebruik je de URL die eindigt op /exec?';
+    SY.url='';SY.code='';syncBewaar();msg.className='msg err';msg.textContent=fout;return;
+  }
+  SY.sheet=d.sheet;syncBewaar();
+  if(d.bijgewerkt){SYNC.remote=d;SYNC.state='conflict';renderInst();syncBanner();return;} // sheet heeft al gegevens: laat kiezen
+  SY.wacht=true;syncBewaar();renderInst();syncPush(false);
+}
 function renderInst(){
   const el=$('#instellingen');const th=getThema();
   let st='';
@@ -930,7 +1098,7 @@ function renderInst(){
   if(UPD.state==='latest') st='<p class="msg ok">Je hebt de nieuwste versie.</p>';
   if(UPD.state==='offline') st='<p class="msg err">Zoeken lukte niet. Ben je met het internet verbonden?</p>';
   if(UPD.state==='new') st=`<p class="msg ok">Er is een nieuwe versie: <b>${esc(UPD.remote.versie)}</b>.</p><div class="row"><button class="primary" data-upd>Nu bijwerken</button></div>`;
-  el.innerHTML=`<div class="card"><h2>Versie</h2>
+  el.innerHTML=`${syncKaart()}<div class="card"><h2>Versie</h2>
     <p>Je gebruikt versie <b>${APP_VERSIE}</b>.</p>
     <div class="row"><button data-act="check">Zoek naar een nieuwe versie</button></div>${st}</div>
   <div class="card"><h2>Thema</h2><div class="row" role="radiogroup" aria-label="Thema">
@@ -938,12 +1106,16 @@ function renderInst(){
   </div></div>
   <div class="card"><h2>Wat is er nieuw?</h2>${VERSIES.map(x=>`<h3>Versie ${esc(x.v)} <span class="muted small">· ${esc(fmtDate(x.d))}</span></h3><ul>${x.w.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`).join('')}</div>
   <div class="card"><h2>Alle gegevens verwijderen</h2>
-    <p>Dit wist <b>alle klassen, leerlingen, criteria, lesmomenten en scores</b> op dit toestel. Dat kan je niet ongedaan maken. Neem eerst een back-up als je de gegevens later nog wil terugzetten.</p>
+    <p>Dit wist <b>alle klassen, leerlingen, criteria, lesmomenten en scores</b> op dit toestel. Dat kan je niet ongedaan maken.${syncAan()?' Je Google Sheet wordt dan ook leeggemaakt; de dagelijkse back-ups in Google Drive blijven wel bewaard.':''} Neem eerst een back-up als je de gegevens later nog wil terugzetten.</p>
     <div class="row"><button data-act="wipeBackup">Kopieer eerst een back-up</button><button class="danger" data-act="wipe">Alle gegevens verwijderen</button></div>
     <div class="copyslot" id="wSlot"></div><div class="msg" id="wMsg"></div></div>`;
 }
 $('#instellingen').addEventListener('click',e=>{
   if(e.target.closest('[data-act="check"]')) checkUpdate(false);
+  if(e.target.closest('[data-act="syKoppel"]')) syncKoppel();
+  if(e.target.closest('[data-act="syPush"]')) syncPush(false);
+  const sp=e.target.closest('[data-act="syPull"]');if(sp) armed(sp,()=>syncPull());
+  const so=e.target.closest('[data-act="syOff"]');if(so) armed(so,()=>{SY.url='';SY.code='';SY.wacht=false;SY.laatst=0;SY.sheet='';syncBewaar();SYNC.state='';SYNC.msg='';SYNC.remote=null;syncBanner();setStatus('Opgeslagen op dit toestel');renderInst();});
   if(e.target.closest('[data-act="wipeBackup"]')) copyText(JSON.stringify(DB),$('#wSlot'));
   const w=e.target.closest('[data-act="wipe"]');
   if(w) armed(w,()=>{
@@ -957,6 +1129,7 @@ $('#instellingen').addEventListener('change',e=>{if(e.target.name==='thema'){try
 /* ================= Start ================= */
 load();render();
 setTimeout(()=>checkUpdate(true),1500);
+setTimeout(()=>syncStart(),800);
 try{if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});}catch(e){}
 try{
   if('serviceWorker' in navigator&&location.protocol==='https:'&&window.self===window.top){
