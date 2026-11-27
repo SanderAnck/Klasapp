@@ -65,10 +65,11 @@ Zo'n bestand kan je in de app terugzetten via **Klas & criteria → Back-up teru
 
 ## Een tweede toestel (bv. iPad of computer)
 
-1. Open de app op dat toestel, ga naar **Instellingen → Google Sheet** en koppel met dezelfde URL en code.
-2. De app ziet dat de sheet al gegevens heeft en vraagt: **Ophalen** of **Dit toestel doorzetten**. Kies **Ophalen**.
+1. Op je toestel dat al gekoppeld is: **Instellingen → Google Sheet → Kopieer toestelcode** (of **Deel toestelcode**). Stuur die code naar je andere toestel, bv. via AirDrop, Berichten of mail.
+2. Op het andere toestel: open de app, ga naar **Instellingen → Google Sheet**, plak de code bij **Toestelcode** en tik op **Koppelen**.
+3. Staan er op dat toestel nog geen gegevens, dan worden alle gegevens meteen opgehaald. Staan er wel al gegevens, dan kies je bovenaan **Ophalen** of **Dit toestel doorzetten**.
 
-Werk je op twee toestellen, dan wint de laatste wijziging. Heeft de sheet nieuwere gegevens dan het toestel waarop je werkt, dan krijg je bovenaan een melding en kies je zelf of je ophaalt of je eigen versie doorzet.
+Werk je op twee toestellen, dan wint de laatste wijziging. Heeft de sheet nieuwere gegevens dan het toestel waarop je werkt, dan krijg je bij het openen van de app bovenaan een melding en kies je zelf of je ophaalt of je eigen versie doorzet.
 
 ## Het script later bijwerken
 
