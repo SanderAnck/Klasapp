@@ -358,6 +358,16 @@ async function syncPull(){
     render();syncToon('ok','Gegevens opgehaald uit Google Sheet.');
   }catch(e){syncToon('fout','Ophalen lukte niet. Ben je met het internet verbonden?');}
 }
+async function syncWis(){
+  const msg=()=>$('#syWipeMsg');
+  if(msg()){msg().className='msg';msg().textContent='Bezig met leegmaken…';}
+  clearTimeout(SYNC.timer);
+  let d;
+  try{d=await syncCall({actie:'wissen'});}catch(e){d=null;}
+  if(d&&d.ok){SY.wacht=false;syncBewaar();SYNC.remote=null;syncToon('ok','Je Google Sheet is leeggemaakt.');setStatus('Google Sheet leeggemaakt');return;}
+  const fout=!d?'Leegmaken lukte niet. Ben je met het internet verbonden?':d.fout==='onbekende actie'?'Je koppelscript is nog een oudere versie. Plak de nieuwe Code.gs in Apps Script en maak een nieuwe versie van de implementatie (zie de handleiding).':d.fout==='koppelcode'?'De koppelcode klopt niet.':'Leegmaken mislukt: '+d.fout;
+  syncToon('fout',fout);
+}
 /* Bij het opstarten: nieuwere gegevens in de sheet? Dan voorstellen om op te halen. Anders wachtende wijzigingen versturen. */
 async function syncStart(){
   if(!syncAan()) return;
@@ -987,12 +997,7 @@ function renderKlas(){
     ${S.cfg.crits.map(c=>`<div class="item" data-id="${esc(c.id)}"><input data-critname value="${esc(c.name)}" aria-label="Naam criterium"><input class="short" data-critshort value="${esc(c.short)}" aria-label="Korte naam"><button class="danger" data-del="crit">Verwijder</button></div>`).join('')}
   </div><h3>Nieuw criterium</h3><div class="row"><label style="flex:1">Naam<input id="cName"></label><label>Kort<input id="cShort" style="width:110px"></label><button class="primary" data-act="addCrit">Toevoegen</button></div><div class="msg" id="cMsg"></div></div>
   <div class="card"><h2>Vakken</h2><label style="width:100%">Snelknoppen, gescheiden door komma's<input id="vakken" style="width:100%" value="${esc(S.cfg.vakken.join(', '))}"></label></div>
-  <div class="card"><h2>Back-up</h2>
-    <p>Je gegevens (alle klassen) staan <b>enkel op dit toestel</b> (in deze browser). Neem af en toe een back-up: tik op "Kopieer back-up" en bewaar de tekst bv. in een notitie of mail aan jezelf. Op een ander toestel plak je die tekst hieronder en tik je op "Back-up terugzetten". Zo zet je alles over.</p>
-    <div class="row"><button class="primary" data-act="backup">Kopieer back-up</button></div><div class="copyslot" id="bSlot"></div>
-    <h3>Back-up terugzetten</h3><textarea id="restore" placeholder="Plak hier je back-up…"></textarea>
-    <div class="row"><button class="danger" data-act="restore">Back-up terugzetten (vervangt alles)</button></div><div class="msg" id="rMsg"></div>
-  </div>`;
+  `;
 }
 $('#klas').addEventListener('input',e=>{
   const t=e.target;
@@ -1009,21 +1014,14 @@ $('#klas').addEventListener('click',e=>{
   const act=b.dataset.act;
   if(act==='addKids'){const names=$('#kAdd').value.split('\n').map(s=>s.trim()).filter(Boolean);if(!names.length){$('#kMsg').className='msg err';$('#kMsg').textContent='Typ of plak eerst namen.';return;}names.forEach(n=>S.cfg.kids.push({id:uid('k'),name:n}));save();renderKlas();$('#kMsg').className='msg ok';$('#kMsg').textContent=names.length+' leerling(en) toegevoegd.';}
   if(act==='addCrit'){const n=$('#cName').value.trim();if(!n){$('#cMsg').className='msg err';$('#cMsg').textContent='Geef een naam.';return;}S.cfg.crits.push({id:uid('c'),name:n,short:$('#cShort').value.trim()||n.slice(0,6)});save();renderKlas();$('#cMsg').className='msg ok';$('#cMsg').textContent='Criterium toegevoegd.';}
-  if(act==='backup'){copyText(JSON.stringify(DB),$('#bSlot'));}
   if(act==='newKlas'){addKlas();return;}
   if(act==='delKlas'){armed(b,()=>{delete DB.klassen[DB.actief];const first=klassenSorted()[0];switchKlas(first.id);});return;}
-  if(act==='restore'){
-    const msg=$('#rMsg');let d;
-    try{d=JSON.parse($('#restore').value);}catch(err){d=null;}
-    d=d&&toDB(d);
-    if(!d){msg.className='msg err';msg.textContent='Dit is geen geldige back-up. Plak de volledige tekst die je met "Kopieer back-up" kreeg.';return;}
-    armed(b,()=>{useDB(d);UI.cur=null;UI.form=null;UI.kid=null;save();renderKlas();const m=$('#rMsg');m.className='msg ok';m.textContent='Back-up teruggezet.';});
-  }
 });
 
 /* ================= Instellingen & versies ================= */
-const APP_VERSIE='1.6';
+const APP_VERSIE='1.7';
 const VERSIES=[
+  {v:'1.7',d:'2026-11-27',w:['Nieuwe knop in Instellingen → Google Sheet: maak je Google Sheet volledig leeg vanuit de app.','De back-up op het toestel zelf (kopiëren en terugzetten) is weg: je gegevens staan nu centraal in Google Sheet en Google Drive.']},
   {v:'1.6',d:'2026-11-27',w:['Een ander toestel koppelen met één toestelcode: kopieer ze op je gekoppelde toestel (Instellingen → Google Sheet) en plak ze op het nieuwe toestel. De gegevens worden meteen opgehaald.']},
   {v:'1.5',d:'2026-11-27',w:['Koppeling met Google Sheet: al je gegevens gaan automatisch naar een Google Sheet en Google Drive (Instellingen → Google Sheet).','In de sheet: tabbladen met alle scores, notities, een overzicht per kind en de rapportteksten.','Elke dag een back-up in Google Drive. Op een nieuw toestel haal je alles op met één knop.']},
   {v:'1.4',d:'2026-11-25',w:['Knop in Instellingen om alle gegevens te verwijderen (met bevestiging).']},
@@ -1063,7 +1061,7 @@ function dbLeeg(){return Object.values(DB.klassen).every(k=>!k.cfg.kids.length&&
 function syncKaart(){
   const inp='autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"';
   if(!syncAan()) return `<div class="card"><h2>Google Sheet</h2>
-    <p>Bewaar al je gegevens (alle klassen) automatisch in een <b>Google Sheet</b> en in <b>Google Drive</b>. Zo heb je één centrale plek, een back-up, en kan je op meerdere toestellen werken.</p>
+    <p>Bewaar al je gegevens (alle klassen) automatisch in een <b>Google Sheet</b> en in <b>Google Drive</b>. Zo heb je één centrale plek en kan je op meerdere toestellen werken.</p>
     <h3>Toestel koppelen</h3>
     <p class="muted small">Op je toestel dat al gekoppeld is: Instellingen → Google Sheet → <b>Kopieer toestelcode</b>. Plak die code hier.</p>
     <label style="width:100%">Toestelcode<input id="syAll" style="width:100%" placeholder="klas1.…" ${inp}></label>
@@ -1088,6 +1086,8 @@ function syncKaart(){
     <div class="row">${navigator.share?'<button data-act="syShare">Deel toestelcode</button>':''}<button data-act="syCopy">Kopieer toestelcode</button></div><div class="copyslot" id="syCopySlot"></div>`:''}
     <h3>Gegevens ophalen</h3><p class="muted small">Alle gegevens op dit toestel worden vervangen door die uit je Google Sheet.</p>
     <div class="row"><button class="danger" data-act="syPull">Ophalen uit Google Sheet (vervangt dit toestel)</button></div>
+    <h3>Google Sheet leegmaken</h3><p class="muted small">Wist alle gegevens uit je Google Sheet (alle tabbladen) en het gegevensbestand in Google Drive. De gegevens op dit toestel blijven staan: bij je volgende wijziging komen ze opnieuw in de sheet. Wil je alles wissen, gebruik dan ook "Alle gegevens verwijderen" hieronder.</p>
+    <div class="row"><button class="danger" data-act="syWipe">Google Sheet leegmaken</button></div><div class="msg" id="syWipeMsg"></div>
     <h3>Ontkoppelen</h3><div class="row"><button data-act="syOff">Ontkoppel dit toestel</button></div></div>`;
 }
 async function syncKoppel(viaUrl){
@@ -1132,19 +1132,19 @@ function renderInst(){
   </div></div>
   <div class="card"><h2>Wat is er nieuw?</h2>${VERSIES.map(x=>`<h3>Versie ${esc(x.v)} <span class="muted small">· ${esc(fmtDate(x.d))}</span></h3><ul>${x.w.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`).join('')}</div>
   <div class="card"><h2>Alle gegevens verwijderen</h2>
-    <p>Dit wist <b>alle klassen, leerlingen, criteria, lesmomenten en scores</b> op dit toestel. Dat kan je niet ongedaan maken.${syncAan()?' Je Google Sheet wordt dan ook leeggemaakt; de dagelijkse back-ups in Google Drive blijven wel bewaard.':''} Neem eerst een back-up als je de gegevens later nog wil terugzetten.</p>
-    <div class="row"><button data-act="wipeBackup">Kopieer eerst een back-up</button><button class="danger" data-act="wipe">Alle gegevens verwijderen</button></div>
-    <div class="copyslot" id="wSlot"></div><div class="msg" id="wMsg"></div></div>`;
+    <p>Dit wist <b>alle klassen, leerlingen, criteria, lesmomenten en scores</b> op dit toestel. Dat kan je niet ongedaan maken.${syncAan()?' Je Google Sheet wordt dan ook leeggemaakt; de dagelijkse back-ups in Google Drive blijven wel bewaard.':''}</p>
+    <div class="row"><button class="danger" data-act="wipe">Alle gegevens verwijderen</button></div>
+    <div class="msg" id="wMsg"></div></div>`;
 }
 $('#instellingen').addEventListener('click',e=>{
   if(e.target.closest('[data-act="check"]')) checkUpdate(false);
   const sk=e.target.closest('[data-act="syKoppel"]');if(sk) syncKoppel(!!sk.closest('details'));
+  const sw=e.target.closest('[data-act="syWipe"]');if(sw) armed(sw,()=>syncWis());
   if(e.target.closest('[data-act="syCopy"]')) copyText(toestelCode(),$('#syCopySlot'));
   if(e.target.closest('[data-act="syShare"]')) navigator.share({title:'Toestelcode Klashouding',text:toestelCode()}).catch(()=>{});
   if(e.target.closest('[data-act="syPush"]')) syncPush(false);
   const sp=e.target.closest('[data-act="syPull"]');if(sp) armed(sp,()=>syncPull());
   const so=e.target.closest('[data-act="syOff"]');if(so) armed(so,()=>{SY.url='';SY.code='';SY.wacht=false;SY.laatst=0;SY.sheet='';syncBewaar();SYNC.state='';SYNC.msg='';SYNC.remote=null;syncBanner();setStatus('Opgeslagen op dit toestel');renderInst();});
-  if(e.target.closest('[data-act="wipeBackup"]')) copyText(JSON.stringify(DB),$('#wSlot'));
   const w=e.target.closest('[data-act="wipe"]');
   if(w) armed(w,()=>{
     try{localStorage.removeItem(KEY);}catch(err){}

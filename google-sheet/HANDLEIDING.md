@@ -61,7 +61,9 @@ In Google Drive vind je naast de sheet de map **Klasapp back-ups** met:
 - `klasapp-gegevens.json`: altijd de laatste volledige versie;
 - `klasapp-JJJJ-MM-DD.json`: één back-up per dag.
 
-Zo'n bestand kan je in de app terugzetten via **Klas & criteria → Back-up terugzetten** (open het bestand, kopieer de tekst en plak hem).
+## De sheet leegmaken
+
+In de app: **Instellingen → Google Sheet → Google Sheet leegmaken** (twee keer tikken). Alle tabbladen worden leeggemaakt (de kolomnamen blijven staan) en `klasapp-gegevens.json` gaat naar de prullenbak. De dagelijkse back-ups in de map blijven bewaard. De gegevens op het toestel zelf blijven staan; bij de volgende wijziging komen ze opnieuw in de sheet.
 
 ## Een tweede toestel (bv. iPad of computer)
 

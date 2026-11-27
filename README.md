@@ -25,15 +25,7 @@ Een eenvoudige webapp voor de juf of meester in het lager onderwijs: beoordeel p
 
 Koppel de app aan een Google Sheet: dan gaan al je gegevens automatisch naar één centrale sheet (met tabbladen voor scores, overzicht per kind en rapportteksten) en staat er elke dag een back-up in Google Drive. Volg de stappen in [google-sheet/HANDLEIDING.md](google-sheet/HANDLEIDING.md).
 
-## 4. Back-ups nemen (zonder Google Sheet)
-
-Zonder koppeling staan je gegevens **enkel op dit toestel**, in de browser. Neem daarom geregeld een back-up:
-
-1. Ga naar **Klas & criteria → Back-up**.
-2. Tik op **Kopieer back-up** en bewaar de tekst, bv. in een notitie of een mail aan jezelf.
-3. Terugzetten of overzetten naar een ander toestel: plak de tekst in het vak **Back-up terugzetten** en tik twee keer op de knop. Let op: dit vervangt alle gegevens op dat toestel.
-
-## 5. Een nieuwe versie uitbrengen
+## 4. Een nieuwe versie uitbrengen
 
 1. Pas de bestanden aan.
 2. Verhoog de versie op drie plaatsen: `VERSIE` in `sw.js`, `APP_VERSIE` (en de lijst `VERSIES`) in `index.html`, en `versie` in `version.json`. In de app vind je onder **Instellingen** de knop om naar een nieuwe versie te zoeken.

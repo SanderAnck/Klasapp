@@ -79,6 +79,7 @@ function doPost(e) {
   if (req.actie === 'info') return json_(info_(props));
   if (req.actie === 'ophalen') return ophalen_(props);
   if (req.actie === 'opslaan') return opslaan_(req, props);
+  if (req.actie === 'wissen') return wissen_(req, props);
   return json_({ ok: false, fout: 'onbekende actie' });
 }
 
@@ -143,6 +144,29 @@ function opslaan_(req, props) {
     });
     const info = SpreadsheetApp.getActive().getSheetByName('Koppeling');
     if (info) info.getRange('B3:B4').setValues([[stempel], [String(req.toestelNaam || req.toestel || '')]]);
+    return json_(info_(props));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Maakt de sheet leeg (kolomnamen blijven staan) en verwijdert het gegevensbestand. De dagelijkse back-ups in Drive blijven bewaard. */
+function wissen_(req, props) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ss = SpreadsheetApp.getActive();
+    TABBLADEN.forEach(naam => {
+      const sh = ss.getSheetByName(naam);
+      if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, sh.getMaxColumns()).clearContent();
+    });
+    const id = props.getProperty('BESTAND_ID');
+    if (id) { try { DriveApp.getFileById(id).setTrashed(true); } catch (err) {} props.deleteProperty('BESTAND_ID'); }
+    const tz = Session.getScriptTimeZone();
+    const stempel = Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm:ss');
+    props.setProperties({ BIJGEWERKT: String(Date.now()), BIJGEWERKT_TEKST: stempel + ' (leeggemaakt)', TOESTEL: String(req.toestel || '') });
+    const info = ss.getSheetByName('Koppeling');
+    if (info) info.getRange('B3:B4').setValues([[stempel + ' (leeggemaakt)'], [String(req.toestelNaam || req.toestel || '')]]);
     return json_(info_(props));
   } finally {
     lock.releaseLock();
