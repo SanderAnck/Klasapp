@@ -1022,8 +1022,9 @@ $('#klas').addEventListener('click',e=>{
 });
 
 /* ================= Instellingen & versies ================= */
-const APP_VERSIE='1.5';
+const APP_VERSIE='1.6';
 const VERSIES=[
+  {v:'1.6',d:'2026-11-27',w:['Een ander toestel koppelen met één toestelcode: kopieer ze op je gekoppelde toestel (Instellingen → Google Sheet) en plak ze op het nieuwe toestel. De gegevens worden meteen opgehaald.']},
   {v:'1.5',d:'2026-11-27',w:['Koppeling met Google Sheet: al je gegevens gaan automatisch naar een Google Sheet en Google Drive (Instellingen → Google Sheet).','In de sheet: tabbladen met alle scores, notities, een overzicht per kind en de rapportteksten.','Elke dag een back-up in Google Drive. Op een nieuw toestel haal je alles op met één knop.']},
   {v:'1.4',d:'2026-11-25',w:['Knop in Instellingen om alle gegevens te verwijderen (met bevestiging).']},
   {v:'1.3',d:'2026-11-25',w:['Meerdere klassen: kies bovenaan je klas of maak een nieuwe. Elke klas heeft eigen leerlingen, criteria en lesmomenten.','Nieuwe weergave "Per criterium": één criterium tegelijk met grote knoppen per leerling, past op je iPhone zonder opzij te scrollen.','Per criterium zie je hoeveel leerlingen al ingevuld zijn en ga je met één tik naar het volgende.','Tik op een naam voor afwezig of een notitie. Het rooster blijft beschikbaar.','De back-up bevat nu al je klassen.']},
@@ -1055,40 +1056,65 @@ async function doUpdate(){
   location.replace(location.pathname+'?v='+Date.now());
 }
 document.addEventListener('click',e=>{if(e.target.closest('[data-upd]')) doUpdate();});
+/* Toestelcode: webapp-URL en koppelcode samen in één code, om een ander toestel te koppelen */
+function toestelCode(){const m=/\/macros\/s\/([A-Za-z0-9_-]+)\//.exec(SY.url||'');return m?'klas1.'+m[1]+'.'+SY.code:'';}
+function leesToestelCode(t){const m=/^klas1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9]+)$/.exec(String(t).trim());return m?{url:'https://script.google.com/macros/s/'+m[1]+'/exec',code:m[2]}:null;}
+function dbLeeg(){return Object.values(DB.klassen).every(k=>!k.cfg.kids.length&&!Object.keys(k.M).length);}
 function syncKaart(){
+  const inp='autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"';
   if(!syncAan()) return `<div class="card"><h2>Google Sheet</h2>
     <p>Bewaar al je gegevens (alle klassen) automatisch in een <b>Google Sheet</b> en in <b>Google Drive</b>. Zo heb je één centrale plek, een back-up, en kan je op meerdere toestellen werken.</p>
-    <p class="muted small">Eerst maak je de sheet en het koppelscript klaar (zie de handleiding in de repository: google-sheet/HANDLEIDING.md). Daarna plak je hier de webapp-URL en de koppelcode.</p>
-    <label style="width:100%">Webapp-URL<input id="syUrl" style="width:100%" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(SY.url||'')}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
-    <div class="row" style="margin-top:8px"><label style="flex:1">Koppelcode<input id="syCode" value="${esc(SY.code||'')}" autocomplete="off" autocapitalize="off" spellcheck="false"></label><label>Naam van dit toestel<input id="syNaam" value="${esc(SY.naam||'')}"></label></div>
-    <div class="row"><button class="primary" data-act="syKoppel">Koppelen</button></div><div class="msg${SYNC.state==='fout'?' err':''}" id="syMsg">${esc(SYNC.msg)}</div></div>`;
+    <h3>Toestel koppelen</h3>
+    <p class="muted small">Op je toestel dat al gekoppeld is: Instellingen → Google Sheet → <b>Kopieer toestelcode</b>. Plak die code hier.</p>
+    <label style="width:100%">Toestelcode<input id="syAll" style="width:100%" placeholder="klas1.…" ${inp}></label>
+    <div class="row" style="margin-top:8px"><label>Naam van dit toestel<input id="syNaam" value="${esc(SY.naam||'')}"></label></div>
+    <div class="row"><button class="primary" data-act="syKoppel">Koppelen</button></div><div class="msg${SYNC.state==='fout'?' err':''}" id="syMsg">${esc(SYNC.msg)}</div>
+    <details style="margin-top:12px"><summary class="small">Eerste keer koppelen (met webapp-URL en koppelcode uit de sheet)</summary>
+      <p class="muted small">Maak eerst de sheet en het koppelscript klaar (handleiding: google-sheet/HANDLEIDING.md in de repository). Plak dan de webapp-URL en de koppelcode van het tabblad Koppeling.</p>
+      <label style="width:100%">Webapp-URL<input id="syUrl" style="width:100%" placeholder="https://script.google.com/macros/s/…/exec" ${inp}></label>
+      <div class="row" style="margin-top:8px"><label style="flex:1">Koppelcode<input id="syCode" ${inp}></label></div>
+      <div class="row"><button data-act="syKoppel">Koppelen met URL en koppelcode</button></div>
+    </details></div>`;
   let st='';
   if(SYNC.state==='ok') st=`<p class="msg ok">${esc(SYNC.msg||'Alles staat in je Google Sheet.')}</p>`;
   if(SYNC.state==='fout') st=`<p class="msg err">${esc(SYNC.msg||'Google Sheet niet bereikt.')}</p>`;
   if(SYNC.state==='conflict') st=`<p class="msg err">Je Google Sheet heeft nieuwere gegevens (${esc(fmtTijd(SYNC.remote&&SYNC.remote.bijgewerkt))}), waarschijnlijk van een ander toestel. Kies bovenaan: ophalen of dit toestel doorzetten.</p>`;
+  const tc=toestelCode();
   return `<div class="card"><h2>Google Sheet</h2>
     <p>Gekoppeld als <b>${esc(SY.naam)}</b>. Elke wijziging gaat na enkele seconden automatisch naar je Google Sheet en Google Drive.</p>
     <p class="muted small">Laatst verstuurd: ${esc(fmtTijd(SY.laatst))}${SY.wacht?' · er wacht nog een wijziging':''}</p>${st}
     <div class="row"><button class="primary" data-act="syPush">Nu versturen</button>${SY.sheet?`<a class="btn" href="${esc(SY.sheet)}" target="_blank" rel="noopener">Open Google Sheet</a>`:''}</div>
-    <h3>Gegevens ophalen</h3><p class="muted small">Gebruik dit op een nieuw toestel: alle gegevens op dit toestel worden vervangen door die uit je Google Sheet.</p>
+    ${tc?`<h3>Een ander toestel koppelen</h3><p class="muted small">Kopieer deze toestelcode en stuur ze naar je andere toestel (bv. via AirDrop, Berichten of mail). Plak ze daar in Instellingen → Google Sheet → Toestelcode. De gegevens worden dan meteen opgehaald. Deel deze code met niemand anders.</p>
+    <div class="row">${navigator.share?'<button data-act="syShare">Deel toestelcode</button>':''}<button data-act="syCopy">Kopieer toestelcode</button></div><div class="copyslot" id="syCopySlot"></div>`:''}
+    <h3>Gegevens ophalen</h3><p class="muted small">Alle gegevens op dit toestel worden vervangen door die uit je Google Sheet.</p>
     <div class="row"><button class="danger" data-act="syPull">Ophalen uit Google Sheet (vervangt dit toestel)</button></div>
     <h3>Ontkoppelen</h3><div class="row"><button data-act="syOff">Ontkoppel dit toestel</button></div></div>`;
 }
-async function syncKoppel(){
-  const url=$('#syUrl').value.trim(),code=$('#syCode').value.trim(),naam=$('#syNaam').value.trim();
-  const msg=$('#syMsg');
-  if(!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(url)){msg.className='msg err';msg.textContent='Plak de volledige webapp-URL (begint met https://script.google.com/macros/s/…).';return;}
-  if(!code){msg.className='msg err';msg.textContent='Plak de koppelcode uit je Google Sheet.';return;}
+async function syncKoppel(viaUrl){
+  const msg=$('#syMsg');const naam=$('#syNaam').value.trim();
+  let url,code;
+  if(viaUrl){
+    url=$('#syUrl').value.trim();code=$('#syCode').value.trim();
+    if(!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(url)){msg.className='msg err';msg.textContent='Plak de volledige webapp-URL (begint met https://script.google.com/macros/s/…).';return;}
+    if(!code){msg.className='msg err';msg.textContent='Plak de koppelcode uit je Google Sheet.';return;}
+  } else {
+    const t=leesToestelCode($('#syAll').value);
+    if(!t){msg.className='msg err';msg.textContent='Dit is geen geldige toestelcode. Ze begint met klas1. Kopieer ze opnieuw op je gekoppelde toestel.';return;}
+    url=t.url;code=t.code;
+  }
   SY.url=url;SY.code=code;if(naam) SY.naam=naam;
   msg.className='msg';msg.textContent='Bezig met koppelen…';
   let d;
   try{d=await syncCall({actie:'info'});}catch(e){d=null;}
   if(!d||!d.ok){
-    const fout=d&&d.fout==='koppelcode'?'De koppelcode klopt niet.':'De webapp is niet bereikbaar. Staat "Wie heeft toegang" op "Iedereen"? Gebruik je de URL die eindigt op /exec?';
+    const fout=d&&d.fout==='koppelcode'?'De koppelcode klopt niet.':'De webapp is niet bereikbaar. Ben je online? Staat "Wie heeft toegang" op "Iedereen"?';
     SY.url='';SY.code='';syncBewaar();msg.className='msg err';msg.textContent=fout;return;
   }
   SY.sheet=d.sheet;syncBewaar();
-  if(d.bijgewerkt){SYNC.remote=d;SYNC.state='conflict';renderInst();syncBanner();return;} // sheet heeft al gegevens: laat kiezen
+  if(d.bijgewerkt){
+    if(dbLeeg()){renderInst();syncPull();return;} // nieuw toestel: meteen alles ophalen
+    SYNC.remote=d;SYNC.state='conflict';renderInst();syncBanner();return; // beide hebben gegevens: laat kiezen
+  }
   SY.wacht=true;syncBewaar();renderInst();syncPush(false);
 }
 function renderInst(){
@@ -1112,7 +1138,9 @@ function renderInst(){
 }
 $('#instellingen').addEventListener('click',e=>{
   if(e.target.closest('[data-act="check"]')) checkUpdate(false);
-  if(e.target.closest('[data-act="syKoppel"]')) syncKoppel();
+  const sk=e.target.closest('[data-act="syKoppel"]');if(sk) syncKoppel(!!sk.closest('details'));
+  if(e.target.closest('[data-act="syCopy"]')) copyText(toestelCode(),$('#syCopySlot'));
+  if(e.target.closest('[data-act="syShare"]')) navigator.share({title:'Toestelcode Klashouding',text:toestelCode()}).catch(()=>{});
   if(e.target.closest('[data-act="syPush"]')) syncPush(false);
   const sp=e.target.closest('[data-act="syPull"]');if(sp) armed(sp,()=>syncPull());
   const so=e.target.closest('[data-act="syOff"]');if(so) armed(so,()=>{SY.url='';SY.code='';SY.wacht=false;SY.laatst=0;SY.sheet='';syncBewaar();SYNC.state='';SYNC.msg='';SYNC.remote=null;syncBanner();setStatus('Opgeslagen op dit toestel');renderInst();});

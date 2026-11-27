@@ -1,5 +1,5 @@
 // Verhoog VERSIE bij elke nieuwe versie van de app (en APP_VERSIE in index.html en version.json).
-const VERSIE = 'klashouding-v6';
+const VERSIE = 'klashouding-v7';
 const BESTANDEN = ['./', './index.html', './manifest.json', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
